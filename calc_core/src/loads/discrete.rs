@@ -94,7 +94,12 @@ impl LoadDistribution {
 /// distribution pattern, magnitude, and optional tributary width.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscreteLoad {
-    /// Unique identifier for this load (for UI row management)
+    /// Unique identifier for this load (for UI row management).
+    ///
+    /// Optional on JSON input - a fresh v4 UUID is generated when absent. The
+    /// GUI uses it as a stable row key; the CLI and library consumers can
+    /// ignore it entirely.
+    #[serde(default = "Uuid::new_v4")]
     pub id: Uuid,
 
     /// Load type (D, L, Lr, S, W, E, H)
@@ -112,9 +117,11 @@ pub struct DiscreteLoad {
     /// Tributary width for converting area load to line load (ft)
     /// When set, the effective magnitude = magnitude * tributary_width
     /// (input is psf, output is plf)
+    #[serde(default)]
     pub tributary_width_ft: Option<f64>,
 
     /// User note/description for this load
+    #[serde(default)]
     pub note: String,
 }
 

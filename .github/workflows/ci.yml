@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: clippy (warnings as errors)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      # Workspace lints set unwrap_used/expect_used/panic to "warn". Here we
+      # treat all warnings as errors EXCEPT those three (audited separately).
+      - name: clippy
+        run: |
+          cargo clippy --workspace --all-targets -- \
+            -D warnings \
+            -A clippy::unwrap_used \
+            -A clippy::expect_used \
+            -A clippy::panic
+
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace
+
+  wasm:
+    name: wasm32 check (calc_gui)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --target wasm32-unknown-unknown -p calc_gui
+
+  audit-unwraps:
+    name: audit (unwrap/expect/panic, non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      # Reports any unwrap_used/expect_used/panic in library + binary code.
+      # Test code is allowed to use them freely. Non-blocking so it surfaces
+      # the count on PRs without gating merges until the codebase is clean.
+      - run: cargo audit-unwraps

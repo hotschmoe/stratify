@@ -1,0 +1,29 @@
+# Stratify - cargo config for fast-iteration on aarch64-pc-windows-msvc.
+#
+# Notes:
+# - rustc_codegen_cranelift is NOT distributed for aarch64-pc-windows-msvc as of 2026.
+#   See https://github.com/rust-lang/rustc_codegen_cranelift
+# - rust-lld is intentionally not the default on aarch64-pc-windows-msvc (rust#54290);
+#   we stay on link.exe (MSVC). Do not override unless you have a reason.
+# - The real wins live in [profile.dev] in the workspace Cargo.toml.
+
+[alias]
+# Short forms for the common cadence
+c   = "check --workspace --all-targets"
+t   = "test --workspace"
+cli = "check -p calc_cli"
+gui = "run --profile dev-fast -p calc_gui"
+
+# Audit: deny unwrap/expect/panic in lib + bin (test code allowed). Run before
+# claiming an unwrap-elimination sweep is done.
+audit-unwraps = "clippy --workspace --lib --bins -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic"
+
+[target.aarch64-pc-windows-msvc]
+rustflags = []
+
+# Nightly-only knobs (left commented; uncomment alongside rust-toolchain.toml):
+# [target.aarch64-pc-windows-msvc]
+# rustflags = [
+#     "-Zthreads=8",
+#     "-Zshare-generics=y",
+# ]

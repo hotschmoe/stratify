@@ -1,0 +1,71 @@
+# Bacon - live feedback runner for Rust. `cargo install bacon` then `bacon`.
+# https://dystroy.org/bacon/
+
+default_job = "check"
+
+[jobs.check]
+command = ["cargo", "check", "--workspace", "--all-targets", "--color", "always"]
+need_stdout = false
+watch = ["src", "Cargo.toml"]
+
+# Fast iteration on the calculation engine only - skips the Iced/wgpu graph.
+[jobs.check-core]
+command = ["cargo", "check", "-p", "calc_core", "--color", "always"]
+need_stdout = false
+
+# Fast iteration on the CLI - skips Typst, Iced, wgpu (calc_cli does not enable
+# the calc_core `pdf` feature).
+[jobs.check-cli]
+command = ["cargo", "check", "-p", "calc_cli", "--color", "always"]
+need_stdout = false
+
+[jobs.clippy]
+command = [
+    "cargo", "clippy", "--workspace", "--all-targets", "--color", "always",
+    "--",
+    "-D", "warnings",
+    "-A", "clippy::unwrap_used",
+    "-A", "clippy::expect_used",
+    "-A", "clippy::panic",
+]
+need_stdout = false
+
+[jobs.test]
+command = ["cargo", "test", "--workspace", "--color", "always"]
+need_stdout = true
+
+# Surface every unwrap/expect/panic in lib + bin code. Test code is allowed.
+[jobs.audit-unwraps]
+command = ["cargo", "audit-unwraps", "--color", "always"]
+need_stdout = true
+allow_failures = true
+
+# Runs the GUI with the fast-iteration debug profile.
+[jobs.gui]
+command = [
+    "cargo", "run", "--profile", "dev-fast", "-p", "calc_gui", "--color", "always",
+]
+need_stdout = false
+allow_warnings = true
+background = true
+on_change_strategy = "kill_then_restart"
+
+# WASM target check - needs calc_core's `pdf` feature on (calc_gui enables it
+# via its own dep declaration).
+[jobs.wasm]
+command = [
+    "cargo", "check", "--target", "wasm32-unknown-unknown",
+    "-p", "calc_gui", "--color", "always",
+]
+need_stdout = false
+
+[keybindings]
+# Single-key shortcuts in the bacon TUI.
+i = "job:check-core"
+l = "job:check-cli"
+c = "job:check"
+y = "job:clippy"
+t = "job:test"
+u = "job:audit-unwraps"
+g = "job:gui"
+w = "job:wasm"

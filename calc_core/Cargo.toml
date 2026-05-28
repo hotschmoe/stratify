@@ -13,6 +13,7 @@ path = "src/bin/gen_equations.rs"
 [[bin]]
 name = "pdf-extractor"
 path = "src/bin/pdf_extractor.rs"
+required-features = ["pdf-extract"]
 
 [dependencies]
 serde = { workspace = true }
@@ -20,17 +21,19 @@ serde_json = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 thiserror = { workspace = true }
-typst = { workspace = true }
-typst-pdf = { workspace = true }
-typst-assets = { workspace = true }
 once_cell = { workspace = true }
-comemo = "0.4"
-ecow = "0.2"
-pdf-extract = "0.10"
 
-# fs2 only on native targets (not WASM)
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-fs2 = { workspace = true }
+# PDF report generation (Typst) - heavy graph, gated behind `pdf` feature.
+typst = { workspace = true, optional = true }
+typst-pdf = { workspace = true, optional = true }
+typst-assets = { workspace = true, optional = true }
+comemo = { version = "0.4", optional = true }
+ecow = { version = "0.2", optional = true }
+
+# PDF text extraction (for the pdf-extractor data-entry tool only).
+pdf-extract = { version = "0.10", optional = true }
+
+# (file locking uses std::fs::File built-ins on Rust 1.89+, no native-only dep)
 
 [dev-dependencies]
 # For testing
@@ -39,7 +42,22 @@ fs2 = { workspace = true }
 toml = "0.8"
 serde = { version = "1.0", features = ["derive"] }
 
+[lints]
+workspace = true
+
 [features]
+# `pdf` is opt-in (NOT in default). Workspace feature unification means a default
+# `pdf` here would force the Typst dep graph onto every workspace member,
+# defeating the iteration-time gain. Consumers that need PDF (calc_gui) request
+# the feature explicitly.
 default = []
+
+# PDF report generation via Typst. Pulls a large dep graph (~typst + wgpu-adjacent
+# crates); leave disabled for fast-iteration on calculation-only crates.
+pdf = ["dep:typst", "dep:typst-pdf", "dep:typst-assets", "dep:comemo", "dep:ecow"]
+
+# Enables the pdf-extractor binary's PDF text-extraction path.
+pdf-extract = ["dep:pdf-extract"]
+
 # Future: schema export for LLM integration
 json-schema = []

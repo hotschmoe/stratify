@@ -1,0 +1,8 @@
+# Pinned for reproducibility across dev machines + CI.
+# Bump deliberately, not on autopilot.
+
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

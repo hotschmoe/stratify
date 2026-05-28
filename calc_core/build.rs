@@ -7,6 +7,11 @@
 //! - Zero runtime overhead (all data baked into binary)
 //! - Clear provenance tracking via sources.toml
 
+// Build scripts are allowed to panic/unwrap freely - a failed build is the
+// correct outcome for malformed source data, and there is no runtime path here
+// for an error to leak into. This opts out of the workspace audit lints.
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::env;

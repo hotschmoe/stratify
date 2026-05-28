@@ -1,20 +1,22 @@
 [package]
 name = "calc_cli"
-description = "Stratify CLI application - Ratatui TUI based"
+description = "Stratify CLI - JSON-in / JSON-out structural calculator"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
 license.workspace = true
+
+[lints]
+workspace = true
 
 [[bin]]
 name = "calc_cli"
 path = "src/main.rs"
 
 [dependencies]
+# calc_cli doesn't render PDFs - calc_core's `pdf` feature stays off here, so
+# `cargo check -p calc_cli` skips the Typst dep graph.
 calc_core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-# TUI dependencies will be added when we implement the CLI
-# ratatui = { workspace = true }
-# crossterm = { workspace = true }
+clap = { workspace = true }

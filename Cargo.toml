@@ -13,6 +13,14 @@ authors = ["Stratify Contributors"]
 license = "MIT"
 repository = "https://github.com/Hotschmoe/stratify"
 
+# Audit lints: surface unwrap/expect/panic at `cargo check`/IDE level as warnings,
+# and force them to errors via `cargo audit-unwraps` (alias in .cargo/config.toml).
+# Each workspace crate opts in with `[lints] workspace = true`.
+[workspace.lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+
 [workspace.dependencies]
 # Serialization
 serde = { version = "1.0", features = ["derive"] }
@@ -30,8 +38,9 @@ thiserror = "2.0"
 # Lazy initialization
 once_cell = "1.19"
 
-# File locking (for network drive safety) - native only, not WASM
-fs2 = "0.4"
+# File locking now uses std::fs::File::{lock, try_lock, unlock} - stable since
+# Rust 1.89 (Aug 2025). No external dep needed; previous fs2 0.4 (unmaintained
+# since 2018) and fs4 are both retired here.
 
 # Getrandom with js feature for WASM support
 getrandom = { version = "0.3", features = ["wasm_js"] }
@@ -51,14 +60,31 @@ typst-assets = { version = "0.14", features = ["fonts"] }
 # GUI (Iced) - 0.14 has updated wgpu with WebGPU browser support
 iced = { version = "0.14", features = ["wgpu", "tokio", "canvas"] }
 
-# TUI (Ratatui)
-ratatui = "0.29"
-crossterm = "0.28"
+# CLI argument parsing (calc_cli)
+clap = { version = "4.5", features = ["derive"] }
 
 # Internal crates
 calc_core = { path = "calc_core" }
+
+# --- Build-speed profile tuning (Windows ARM64) ---
+#
+# debug = "line-tables-only" gives ~20-40% faster incremental builds on Windows
+# MSVC by skipping variable/type debuginfo while keeping file:line in backtraces.
+# See https://kobzol.github.io/rust/rustc/2025/05/20/disable-debuginfo-to-improve-rust-compile-times.html
+[profile.dev]
+debug = "line-tables-only"
+
+# Faster `cargo test` too.
+[profile.test]
+debug = "line-tables-only"
 
 # Optimize dependencies in dev builds for better UI performance
 # (keeps your code unoptimized for fast compile times)
 [profile.dev.package."*"]
 opt-level = 3
+
+# Max-speed iteration profile for when you don't need the debugger.
+# Usage: cargo run --profile dev-fast -p calc_gui
+[profile.dev-fast]
+inherits = "dev"
+debug = false

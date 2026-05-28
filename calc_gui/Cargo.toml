@@ -6,12 +6,17 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 
+[lints]
+workspace = true
+
 [[bin]]
 name = "calc_gui"
 path = "src/main.rs"
 
 [dependencies]
-calc_core = { workspace = true }
+# calc_gui generates PDF reports - explicitly enable the `pdf` feature on
+# calc_core (not via defaults, so other workspace members can opt out).
+calc_core = { workspace = true, features = ["pdf"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }

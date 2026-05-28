@@ -1,128 +1,260 @@
-//! # Stratify CLI Application
+//! # Stratify CLI
 //!
-//! Terminal-based interface for structural engineering calculations.
-//! Built with Ratatui for a rich TUI experience.
+//! JSON-in / JSON-out structural engineering calculator. Each subcommand reads
+//! a JSON input document (from `--input PATH`, `-`, or stdin), runs the
+//! corresponding calc_core calculation, and writes JSON output to stdout
+//! (or `--output PATH`). Errors are emitted to stderr as JSON for machine
+//! consumption:
 //!
-//! ## Status
+//! ```text
+//! {"error":"<message>","kind":"<machine-readable-kind>"}
+//! ```
 //!
-//! This is a placeholder. The CLI will be implemented after
-//! calc_core and calc_gui are functional.
+//! ## Exit codes
+//!
+//! - `0` — success
+//! - `1` — I/O failure (file not found, stdin read error, write error) or
+//!         malformed JSON input
+//! - `2` — calculation error (validation failure, code-check failure surfaced
+//!         as an error, etc.)
+//! - `3` — serialization of the result failed (should never happen in practice)
+//!
+//! ## Examples
+//!
+//! ```text
+//! stratify-cli beam --input beam.json --pretty
+//! cat beam.json | stratify-cli beam
+//! stratify-cli continuous-beam -i cb.json -o cb-result.json
+//! stratify-cli beam -i beam.json --method lrfd
+//! ```
 
-use std::io::{self, BufRead, Write};
+use std::fs;
+use std::io::{self, Read, Write};
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+
+use clap::{Args, Parser, Subcommand, ValueEnum};
+use serde::Serialize;
 
 use calc_core::calculations::beam::{calculate, BeamInput};
-use calc_core::loads::{DesignMethod, DiscreteLoad, EnhancedLoadCase, LoadType};
-use calc_core::materials::{Material, WoodGrade, WoodMaterial, WoodSpecies};
+use calc_core::calculations::continuous_beam::{calculate_continuous, ContinuousBeamInput};
+use calc_core::{CalcError, DesignMethod};
 
-fn prompt_f64(prompt: &str, default: f64) -> f64 {
-    print!("{}", prompt);
-    if io::stdout().flush().is_err() {
-        return default;
-    }
+// ============================================================================
+// CLI Surface
+// ============================================================================
 
-    let mut input = String::new();
-    if io::stdin().lock().read_line(&mut input).is_err() {
-        return default;
-    }
-
-    input.trim().parse().unwrap_or(default)
+#[derive(Parser)]
+#[command(
+    name = "stratify-cli",
+    about = "Stratify - JSON-in / JSON-out structural calculator",
+    long_about = "Reads structural calculation inputs as JSON and emits results \
+as JSON. Inputs may come from a file (--input PATH) or stdin; outputs go to \
+stdout or --output PATH. Errors are JSON on stderr.",
+    version,
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Command,
 }
 
-fn main() {
-    println!("Stratify CLI - Structural Engineering Calculator");
-    println!("================================================");
-    println!();
-    println!("TUI not yet implemented. Running simple CLI demo...");
-    println!();
+#[derive(Subcommand)]
+enum Command {
+    /// Analyze a simply-supported beam (NDS, wood).
+    Beam(IoArgs),
 
-    let span_ft = prompt_f64("Enter beam span (ft) [12.0]: ", 12.0);
-    let load_plf = prompt_f64("Enter uniform load (plf) [100.0]: ", 100.0);
+    /// Analyze a multi-span continuous beam via Hardy Cross moment distribution.
+    #[command(name = "continuous-beam")]
+    ContinuousBeam(IoArgs),
+}
 
-    println!();
-    println!("Calculating 2x10 DF-L No.2 beam...");
-    println!();
+#[derive(Args)]
+struct IoArgs {
+    /// Input JSON file. Use `-` or omit to read from stdin.
+    #[arg(short, long, value_name = "PATH")]
+    input: Option<PathBuf>,
 
-    // Create load case (assume 30% dead, 70% live for demo)
-    let dead_plf = load_plf * 0.3;
-    let live_plf = load_plf * 0.7;
-    let load_case = EnhancedLoadCase::new("Demo Loads")
-        .with_load(DiscreteLoad::uniform(LoadType::Dead, dead_plf))
-        .with_load(DiscreteLoad::uniform(LoadType::Live, live_plf));
+    /// Output JSON file. Omit to write to stdout.
+    #[arg(short, long, value_name = "PATH")]
+    output: Option<PathBuf>,
 
-    let beam = BeamInput {
-        label: "CLI-Demo".to_string(),
-        span_ft,
-        load_case,
-        material: Material::SawnLumber(WoodMaterial::new(
-            WoodSpecies::DouglasFirLarch,
-            WoodGrade::No2,
-        )),
-        width_in: 1.5,
-        depth_in: 9.25,
-        adjustment_factors: calc_core::nds_factors::AdjustmentFactors::default(),
+    /// Pretty-print the output JSON (default: compact).
+    #[arg(short, long)]
+    pretty: bool,
+
+    /// Design method.
+    #[arg(short, long, value_enum, default_value_t = MethodArg::Asd)]
+    method: MethodArg,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+enum MethodArg {
+    /// Allowable Stress Design (ASCE 7 ASD load combinations)
+    Asd,
+    /// Load and Resistance Factor Design (ASCE 7 LRFD load combinations)
+    Lrfd,
+}
+
+impl From<MethodArg> for DesignMethod {
+    fn from(m: MethodArg) -> Self {
+        match m {
+            MethodArg::Asd => DesignMethod::Asd,
+            MethodArg::Lrfd => DesignMethod::Lrfd,
+        }
+    }
+}
+
+// ============================================================================
+// Entry point
+// ============================================================================
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+    let result = match cli.command {
+        Command::Beam(io) => run_beam(io),
+        Command::ContinuousBeam(io) => run_continuous_beam(io),
     };
-
-    match calculate(&beam, DesignMethod::Asd) {
-        Ok(result) => {
-            println!("═══════════════════════════════════════");
-            println!("  BEAM CALCULATION RESULTS");
-            println!("═══════════════════════════════════════");
-            println!();
-            println!("Input:");
-            println!("  Span:     {:.1} ft", beam.span_ft);
-            println!("  Load:     {:.0} plf (D={:.0}, L={:.0})", load_plf, dead_plf, live_plf);
-            println!("  Section:  2x10 (1.5\" x 9.25\")");
-            println!("  Material: DF-L No.2");
-            println!();
-            println!("Demand:");
-            println!("  M_max = {:.0} ft-lb", result.max_moment_ftlb);
-            println!("  V_max = {:.0} lb", result.max_shear_lb);
-            println!("  δ_max = {:.3}\"", result.max_deflection_in);
-            println!();
-            println!("Capacity Checks:");
-            println!("  Bending:    {:.2} ({:.0}/{:.0} psi) {}",
-                result.bending_unity,
-                result.actual_fb_psi,
-                result.allowable_fb_psi,
-                status_icon(result.bending_unity <= 1.0)
-            );
-            println!("  Shear:      {:.2} ({:.0}/{:.0} psi) {}",
-                result.shear_unity,
-                result.actual_fv_psi,
-                result.allowable_fv_psi,
-                status_icon(result.shear_unity <= 1.0)
-            );
-            println!("  Deflection: {:.2} (L/{:.0} vs L/{:.0}) {}",
-                result.deflection_unity,
-                result.deflection_ratio,
-                result.deflection_limit_ratio,
-                status_icon(result.deflection_unity <= 1.0)
-            );
-            println!();
-            println!("═══════════════════════════════════════");
-            println!("  RESULT: {} (governs: {})",
-                if result.passes() { "PASS" } else { "FAIL" },
-                result.governing_condition()
-            );
-            println!("═══════════════════════════════════════");
-
-            println!();
-            println!("JSON Output (for LLM/API use):");
-            if let Ok(json) = serde_json::to_string_pretty(&result) {
-                println!("{}", json);
-            }
-        }
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            eprintln!("Error: {}", e);
-            if let Ok(json) = serde_json::to_string_pretty(&e) {
-                eprintln!();
-                eprintln!("Error JSON:");
-                eprintln!("{}", json);
-            }
+            emit_error_json(&e);
+            e.exit_code()
         }
     }
 }
 
-fn status_icon(pass: bool) -> &'static str {
-    if pass { "[OK]" } else { "[FAIL]" }
+fn run_beam(io: IoArgs) -> Result<(), CliError> {
+    let bytes = read_input(io.input.as_deref())?;
+    let input: BeamInput = serde_json::from_slice(&bytes).map_err(CliError::ParseInput)?;
+    let result = calculate(&input, io.method.into()).map_err(CliError::Calc)?;
+    write_json(io.output.as_deref(), &result, io.pretty)
+}
+
+fn run_continuous_beam(io: IoArgs) -> Result<(), CliError> {
+    let bytes = read_input(io.input.as_deref())?;
+    let input: ContinuousBeamInput =
+        serde_json::from_slice(&bytes).map_err(CliError::ParseInput)?;
+    let result = calculate_continuous(&input, io.method.into()).map_err(CliError::Calc)?;
+    write_json(io.output.as_deref(), &result, io.pretty)
+}
+
+// ============================================================================
+// I/O helpers
+// ============================================================================
+
+fn read_input(path: Option<&Path>) -> Result<Vec<u8>, CliError> {
+    // Treat `-` as an explicit stdin sentinel.
+    let from_stdin = match path {
+        None => true,
+        Some(p) => p.as_os_str() == "-",
+    };
+    if from_stdin {
+        let mut buf = Vec::new();
+        io::stdin()
+            .lock()
+            .read_to_end(&mut buf)
+            .map_err(|source| CliError::Io {
+                op: "read stdin",
+                path: "<stdin>".into(),
+                source,
+            })?;
+        return Ok(buf);
+    }
+    let Some(p) = path else {
+        // Unreachable: from_stdin is false only when path is Some.
+        return Err(CliError::Io {
+            op: "read input",
+            path: "<none>".into(),
+            source: io::Error::new(io::ErrorKind::InvalidInput, "no input path"),
+        });
+    };
+    fs::read(p).map_err(|source| CliError::Io {
+        op: "read input file",
+        path: p.display().to_string(),
+        source,
+    })
+}
+
+fn write_json<T: Serialize>(
+    path: Option<&Path>,
+    value: &T,
+    pretty: bool,
+) -> Result<(), CliError> {
+    let serialized = if pretty {
+        serde_json::to_string_pretty(value).map_err(CliError::SerializeOutput)?
+    } else {
+        serde_json::to_string(value).map_err(CliError::SerializeOutput)?
+    };
+    match path {
+        Some(p) => fs::write(p, serialized).map_err(|source| CliError::Io {
+            op: "write output file",
+            path: p.display().to_string(),
+            source,
+        }),
+        None => {
+            let mut out = io::stdout().lock();
+            out.write_all(serialized.as_bytes())
+                .and_then(|()| out.write_all(b"\n"))
+                .map_err(|source| CliError::Io {
+                    op: "write stdout",
+                    path: "<stdout>".into(),
+                    source,
+                })
+        }
+    }
+}
+
+// ============================================================================
+// Error surface
+// ============================================================================
+
+#[derive(Debug)]
+enum CliError {
+    ParseInput(serde_json::Error),
+    SerializeOutput(serde_json::Error),
+    Io {
+        op: &'static str,
+        path: String,
+        source: io::Error,
+    },
+    Calc(CalcError),
+}
+
+impl CliError {
+    fn exit_code(&self) -> ExitCode {
+        match self {
+            CliError::ParseInput(_) | CliError::Io { .. } => ExitCode::from(1),
+            CliError::Calc(_) => ExitCode::from(2),
+            CliError::SerializeOutput(_) => ExitCode::from(3),
+        }
+    }
+
+    fn kind(&self) -> &'static str {
+        match self {
+            CliError::ParseInput(_) => "invalid_json_input",
+            CliError::SerializeOutput(_) => "serialize_failed",
+            CliError::Io { .. } => "io_error",
+            CliError::Calc(_) => "calculation_error",
+        }
+    }
+}
+
+impl std::fmt::Display for CliError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CliError::ParseInput(e) => write!(f, "invalid JSON input: {e}"),
+            CliError::SerializeOutput(e) => write!(f, "could not serialize output: {e}"),
+            CliError::Io { op, path, source } => write!(f, "{op} {path}: {source}"),
+            CliError::Calc(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+fn emit_error_json(e: &CliError) {
+    let payload = serde_json::json!({
+        "error": e.to_string(),
+        "kind": e.kind(),
+    });
+    // If stderr is gone we can't surface anything anyway; intentionally drop.
+    let _ = writeln!(io::stderr(), "{payload}");
 }

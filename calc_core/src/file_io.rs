@@ -47,9 +47,7 @@ use serde::{Deserialize, Serialize};
 use crate::errors::{CalcError, CalcResult};
 use crate::project::{Project, SCHEMA_VERSION};
 
-// fs2 is only available on native platforms
-#[cfg(not(target_arch = "wasm32"))]
-use fs2::FileExt;
+// File locking uses std::fs::File::{try_lock, unlock} - stable since Rust 1.89.
 #[cfg(not(target_arch = "wasm32"))]
 use std::fs::OpenOptions;
 
@@ -184,8 +182,9 @@ impl FileLock {
                 CalcError::file_error("create lock", lock_path.display().to_string(), e.to_string())
             })?;
 
-        // Try to acquire exclusive OS-level lock (non-blocking)
-        lock_file.try_lock_exclusive().map_err(|_| {
+        // Try to acquire exclusive OS-level lock (non-blocking).
+        // std::fs::File::try_lock returns Result<(), TryLockError> on Rust 1.89+.
+        lock_file.try_lock().map_err(|_| {
             CalcError::file_locked(
                 path.display().to_string(),
                 "another process".to_string(),
