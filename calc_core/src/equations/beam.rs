@@ -915,11 +915,7 @@ mod tests {
     fn test_cantilever_uniform_moment_at_support() {
         // At x=0: M = -wL²/2 = -5000 ft-lb (hogging)
         let m = cantilever_uniform_moment(100.0, 10.0, 0.0);
-        assert!(
-            approx_eq(m, -5000.0),
-            "M(0) = {} (expected -5000)",
-            m
-        );
+        assert!(approx_eq(m, -5000.0), "M(0) = {} (expected -5000)", m);
     }
 
     #[test]
@@ -960,21 +956,9 @@ mod tests {
         // R_B = 3wL/8 = 375 lb
         // M_A = wL²/8 = 1250 ft-lb
         let (r_a, r_b, m_a) = fixed_pinned_uniform_reactions(100.0, 10.0);
-        assert!(
-            approx_eq(r_a, 625.0),
-            "R_A = {} (expected 625)",
-            r_a
-        );
-        assert!(
-            approx_eq(r_b, 375.0),
-            "R_B = {} (expected 375)",
-            r_b
-        );
-        assert!(
-            approx_eq(m_a, 1250.0),
-            "M_A = {} (expected 1250)",
-            m_a
-        );
+        assert!(approx_eq(r_a, 625.0), "R_A = {} (expected 625)", r_a);
+        assert!(approx_eq(r_b, 375.0), "R_B = {} (expected 375)", r_b);
+        assert!(approx_eq(m_a, 1250.0), "M_A = {} (expected 1250)", m_a);
     }
 
     #[test]

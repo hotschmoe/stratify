@@ -14,9 +14,9 @@
 //!
 //! - `0` — success
 //! - `1` — I/O failure (file not found, stdin read error, write error) or
-//!         malformed JSON input
+//!   malformed JSON input
 //! - `2` — calculation error (validation failure, code-check failure surfaced
-//!         as an error, etc.)
+//!   as an error, etc.)
 //! - `3` — serialization of the result failed (should never happen in practice)
 //!
 //! ## Examples
@@ -51,7 +51,7 @@ use calc_core::{CalcError, DesignMethod};
     long_about = "Reads structural calculation inputs as JSON and emits results \
 as JSON. Inputs may come from a file (--input PATH) or stdin; outputs go to \
 stdout or --output PATH. Errors are JSON on stderr.",
-    version,
+    version
 )]
 struct Cli {
     #[command(subcommand)]
@@ -175,11 +175,7 @@ fn read_input(path: Option<&Path>) -> Result<Vec<u8>, CliError> {
     })
 }
 
-fn write_json<T: Serialize>(
-    path: Option<&Path>,
-    value: &T,
-    pretty: bool,
-) -> Result<(), CliError> {
+fn write_json<T: Serialize>(path: Option<&Path>, value: &T, pretty: bool) -> Result<(), CliError> {
     let serialized = if pretty {
         serde_json::to_string_pretty(value).map_err(CliError::SerializeOutput)?
     } else {

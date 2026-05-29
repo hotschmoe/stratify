@@ -103,6 +103,7 @@ struct SawnLumberMetadata {
 
 #[derive(Debug, Deserialize)]
 struct SawnLumberSpecies {
+    #[allow(dead_code)]
     name: String,
     code: String,
     grades: Vec<SawnLumberGrade>,
@@ -110,6 +111,7 @@ struct SawnLumberSpecies {
 
 #[derive(Debug, Deserialize)]
 struct SawnLumberGrade {
+    #[allow(dead_code)]
     name: String,
     code: String,
     #[serde(rename = "Fb")]
@@ -142,7 +144,7 @@ fn process_sawn_lumber(data_dir: &Path) -> Option<String> {
     if let Ok(entries) = fs::read_dir(&sawn_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().map_or(false, |e| e == "toml") {
+            if path.extension().is_some_and(|e| e == "toml") {
                 println!("cargo:rerun-if-changed={}", path.display());
                 if let Ok(content) = fs::read_to_string(&path) {
                     match toml::from_str::<SawnLumberFile>(&content) {
@@ -170,10 +172,12 @@ fn process_sawn_lumber(data_dir: &Path) -> Option<String> {
 
     // Add provenance comments
     for (meta, _) in &all_data {
-        code.push_str(&format!("    //! Source: {} {} ({})\n",
-            meta.source, meta.table, meta.edition_year));
+        code.push_str(&format!(
+            "    //! Source: {} {} ({})\n",
+            meta.source, meta.table, meta.edition_year
+        ));
     }
-    code.push_str("\n");
+    code.push('\n');
 
     // Generate lookup function
     code.push_str("    use std::collections::HashMap;\n");
@@ -205,11 +209,17 @@ fn process_sawn_lumber(data_dir: &Path) -> Option<String> {
                 code.push_str(&format!("            fb_psi: {:.1},\n", grade.fb_psi));
                 code.push_str(&format!("            ft_psi: {:.1},\n", grade.ft_psi));
                 code.push_str(&format!("            fv_psi: {:.1},\n", grade.fv_psi));
-                code.push_str(&format!("            fc_perp_psi: {:.1},\n", grade.fc_perp_psi));
+                code.push_str(&format!(
+                    "            fc_perp_psi: {:.1},\n",
+                    grade.fc_perp_psi
+                ));
                 code.push_str(&format!("            fc_psi: {:.1},\n", grade.fc_psi));
                 code.push_str(&format!("            e_psi: {:.1},\n", grade.e_psi));
                 code.push_str(&format!("            e_min_psi: {:.1},\n", grade.e_min_psi));
-                code.push_str(&format!("            specific_gravity: {:.2},\n", grade.specific_gravity));
+                code.push_str(&format!(
+                    "            specific_gravity: {:.2},\n",
+                    grade.specific_gravity
+                ));
                 code.push_str("        });\n");
             }
         }
@@ -219,7 +229,9 @@ fn process_sawn_lumber(data_dir: &Path) -> Option<String> {
     code.push_str("    });\n\n");
 
     // Generate lookup helper
-    code.push_str("    pub fn lookup(species_code: &str, grade_code: &str) -> Option<SawnLumberProps> {\n");
+    code.push_str(
+        "    pub fn lookup(species_code: &str, grade_code: &str) -> Option<SawnLumberProps> {\n",
+    );
     code.push_str("        SAWN_LUMBER.get(&(species_code, grade_code)).copied()\n");
     code.push_str("    }\n");
 
@@ -242,7 +254,7 @@ struct EngineeredWoodFile {
 #[derive(Debug, Deserialize)]
 struct EngineeredMetadata {
     source: String,
-    product_type: String,  // "LVL", "PSL", "LSL", "Glulam"
+    product_type: String, // "LVL", "PSL", "LSL", "Glulam"
     manufacturer: Option<String>,
     #[allow(dead_code)]
     evaluation_report: Option<String>,
@@ -272,7 +284,7 @@ struct EngineeredProduct {
     #[serde(rename = "SG")]
     specific_gravity: f64,
     #[serde(default)]
-    depth_factor_exponent: Option<f64>,  // For depth adjustment: (12/d)^exp
+    depth_factor_exponent: Option<f64>, // For depth adjustment: (12/d)^exp
 }
 
 // ============================================================================
@@ -290,7 +302,7 @@ struct GlulamFile {
 struct GlulamMetadata {
     source: String,
     #[allow(dead_code)]
-    product_type: String,  // Should be "Glulam"
+    product_type: String, // Should be "Glulam"
     #[allow(dead_code)]
     transcribed_date: Option<String>,
     #[allow(dead_code)]
@@ -323,6 +335,7 @@ struct GlulamProduct {
     #[serde(rename = "SG")]
     specific_gravity: f64,
     #[serde(default)]
+    #[allow(dead_code)]
     is_balanced: bool,
 }
 
@@ -332,7 +345,8 @@ fn process_engineered_wood(data_dir: &Path) -> Option<String> {
         return None;
     }
 
-    let mut lvl_psl_data: HashMap<String, Vec<(EngineeredMetadata, Vec<EngineeredProduct>)>> = HashMap::new();
+    let mut lvl_psl_data: HashMap<String, Vec<(EngineeredMetadata, Vec<EngineeredProduct>)>> =
+        HashMap::new();
     let mut glulam_data: Vec<(GlulamMetadata, Vec<GlulamProduct>)> = Vec::new();
 
     // Process all TOML files in engineered directory
@@ -346,7 +360,7 @@ fn process_engineered_wood(data_dir: &Path) -> Option<String> {
                 let path = entry.path();
                 if path.is_dir() {
                     process_dir(&path, lvl_psl_data, glulam_data);
-                } else if path.extension().map_or(false, |e| e == "toml") {
+                } else if path.extension().is_some_and(|e| e == "toml") {
                     println!("cargo:rerun-if-changed={}", path.display());
                     if let Ok(content) = fs::read_to_string(&path) {
                         // Try parsing as Glulam first (has Fb_pos/Fb_neg)
@@ -360,7 +374,8 @@ fn process_engineered_wood(data_dir: &Path) -> Option<String> {
                         match toml::from_str::<EngineeredWoodFile>(&content) {
                             Ok(data) => {
                                 let product_type = data.metadata.product_type.clone();
-                                lvl_psl_data.entry(product_type)
+                                lvl_psl_data
+                                    .entry(product_type)
                                     .or_default()
                                     .push((data.metadata, data.products));
                             }
@@ -423,22 +438,39 @@ fn process_engineered_wood(data_dir: &Path) -> Option<String> {
         code.push_str("        let mut m = HashMap::new();\n");
 
         for (meta, products) in data_list {
-            code.push_str(&format!("        // Source: {} ({})\n",
+            code.push_str(&format!(
+                "        // Source: {} ({})\n",
                 meta.source,
-                meta.manufacturer.as_deref().unwrap_or("generic")));
+                meta.manufacturer.as_deref().unwrap_or("generic")
+            ));
 
             for product in products {
-                code.push_str(&format!("        m.insert(\"{}\", EngineeredWoodProps {{\n", product.code));
+                code.push_str(&format!(
+                    "        m.insert(\"{}\", EngineeredWoodProps {{\n",
+                    product.code
+                ));
                 code.push_str(&format!("            fb_psi: {:.1},\n", product.fb_psi));
                 code.push_str(&format!("            ft_psi: {:.1},\n", product.ft_psi));
                 code.push_str(&format!("            fv_psi: {:.1},\n", product.fv_psi));
-                code.push_str(&format!("            fc_perp_psi: {:.1},\n", product.fc_perp_psi));
+                code.push_str(&format!(
+                    "            fc_perp_psi: {:.1},\n",
+                    product.fc_perp_psi
+                ));
                 code.push_str(&format!("            fc_psi: {:.1},\n", product.fc_psi));
                 code.push_str(&format!("            e_psi: {:.1},\n", product.e_psi));
-                code.push_str(&format!("            e_min_psi: {:.1},\n", product.e_min_psi));
-                code.push_str(&format!("            specific_gravity: {:.2},\n", product.specific_gravity));
+                code.push_str(&format!(
+                    "            e_min_psi: {:.1},\n",
+                    product.e_min_psi
+                ));
+                code.push_str(&format!(
+                    "            specific_gravity: {:.2},\n",
+                    product.specific_gravity
+                ));
                 match product.depth_factor_exponent {
-                    Some(exp) => code.push_str(&format!("            depth_factor_exponent: Some({:.3}),\n", exp)),
+                    Some(exp) => code.push_str(&format!(
+                        "            depth_factor_exponent: Some({:.3}),\n",
+                        exp
+                    )),
                     None => code.push_str("            depth_factor_exponent: None,\n"),
                 }
                 code.push_str("        });\n");
@@ -451,23 +483,43 @@ fn process_engineered_wood(data_dir: &Path) -> Option<String> {
 
     // Generate static data for Glulam
     if !glulam_data.is_empty() {
-        code.push_str("    pub static GLULAM: Lazy<HashMap<&'static str, GlulamProps>> = Lazy::new(|| {\n");
+        code.push_str(
+            "    pub static GLULAM: Lazy<HashMap<&'static str, GlulamProps>> = Lazy::new(|| {\n",
+        );
         code.push_str("        let mut m = HashMap::new();\n");
 
         for (meta, products) in &glulam_data {
             code.push_str(&format!("        // Source: {}\n", meta.source));
 
             for product in products {
-                code.push_str(&format!("        m.insert(\"{}\", GlulamProps {{\n", product.code));
-                code.push_str(&format!("            fb_pos_psi: {:.1},\n", product.fb_pos_psi));
-                code.push_str(&format!("            fb_neg_psi: {:.1},\n", product.fb_neg_psi));
+                code.push_str(&format!(
+                    "        m.insert(\"{}\", GlulamProps {{\n",
+                    product.code
+                ));
+                code.push_str(&format!(
+                    "            fb_pos_psi: {:.1},\n",
+                    product.fb_pos_psi
+                ));
+                code.push_str(&format!(
+                    "            fb_neg_psi: {:.1},\n",
+                    product.fb_neg_psi
+                ));
                 code.push_str(&format!("            ft_psi: {:.1},\n", product.ft_psi));
                 code.push_str(&format!("            fv_psi: {:.1},\n", product.fv_psi));
-                code.push_str(&format!("            fc_perp_psi: {:.1},\n", product.fc_perp_psi));
+                code.push_str(&format!(
+                    "            fc_perp_psi: {:.1},\n",
+                    product.fc_perp_psi
+                ));
                 code.push_str(&format!("            fc_psi: {:.1},\n", product.fc_psi));
                 code.push_str(&format!("            e_psi: {:.1},\n", product.e_psi));
-                code.push_str(&format!("            e_min_psi: {:.1},\n", product.e_min_psi));
-                code.push_str(&format!("            specific_gravity: {:.2},\n", product.specific_gravity));
+                code.push_str(&format!(
+                    "            e_min_psi: {:.1},\n",
+                    product.e_min_psi
+                ));
+                code.push_str(&format!(
+                    "            specific_gravity: {:.2},\n",
+                    product.specific_gravity
+                ));
                 code.push_str("        });\n");
             }
         }

@@ -52,11 +52,11 @@ pub mod units;
 
 // Re-export commonly used types at crate root for convenience
 pub use errors::{CalcError, CalcResult};
-pub use file_io::{save_project, load_project, FileLock};
-pub use loads::{LoadType, LoadCase, LoadCombination, DesignMethod};
+pub use file_io::{load_project, save_project, FileLock};
+pub use loads::{DesignMethod, LoadCase, LoadCombination, LoadType};
 pub use materials::Material;
-pub use nds_factors::{AdjustmentFactors, LoadDuration, WetService, RepetitiveMember};
+pub use nds_factors::{AdjustmentFactors, LoadDuration, RepetitiveMember, WetService};
 #[cfg(feature = "pdf")]
 pub use pdf::render_beam_pdf;
-pub use project::{Project, ProjectMetadata, GlobalSettings};
-pub use section_deductions::{SectionDeductions, NotchLocation};
+pub use project::{GlobalSettings, Project, ProjectMetadata};
+pub use section_deductions::{NotchLocation, SectionDeductions};

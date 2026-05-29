@@ -21,33 +21,34 @@
 //!     WoodGrade::No2
 //! ));
 //!
-//! // Get unified properties
-//! let props = lumber.base_properties();
+//! // Get unified properties (engineered-wood lookups can fail if TOML data is missing)
+//! let props = lumber.base_properties().unwrap();
 //! println!("Fb = {} psi, E = {} psi", props.fb_psi, props.e_psi);
 //! ```
 
-pub mod sawn_lumber;
 pub mod engineered_wood;
 pub mod lumber_sizes;
+pub mod sawn_lumber;
 pub mod steel;
 
 // Re-export sawn lumber types
-pub use sawn_lumber::{WoodSpecies, WoodGrade, WoodProperties, WoodMaterial};
+pub use sawn_lumber::{WoodGrade, WoodMaterial, WoodProperties, WoodSpecies};
 
 // Re-export lumber size types
-pub use lumber_sizes::{LumberSize, PlyCount, BeamDesignation};
+pub use lumber_sizes::{BeamDesignation, LumberSize, PlyCount};
 
 // Re-export engineered wood types
 pub use engineered_wood::{
-    GlulamStressClass, GlulamLayup, GlulamProperties, GlulamMaterial,
-    LvlGrade, LvlProperties, LvlMaterial,
-    PslGrade, PslProperties, PslMaterial,
+    GlulamLayup, GlulamMaterial, GlulamProperties, GlulamStressClass, LvlGrade, LvlMaterial,
+    LvlProperties, PslGrade, PslMaterial, PslProperties,
 };
 
 // Re-export steel types
-pub use steel::{ShapeType, SteelShape, SteelShapeDb, builtin_common_shapes};
+pub use steel::{builtin_common_shapes, ShapeType, SteelShape, SteelShapeDb};
 
 use serde::{Deserialize, Serialize};
+
+use crate::errors::CalcResult;
 
 /// Unified material properties for all wood types
 ///
@@ -113,8 +114,11 @@ impl Material {
     ///
     /// For glulam with unbalanced layup, this returns Fb+ (positive bending).
     /// Use `fb_for_depth` to get depth-adjusted values for engineered lumber.
-    pub fn base_properties(&self) -> UnifiedWoodProperties {
-        match self {
+    ///
+    /// Returns `Err(CalcError::MaterialNotFound)` if a referenced engineered-wood
+    /// variant has no TOML data emitted by `build.rs`.
+    pub fn base_properties(&self) -> CalcResult<UnifiedWoodProperties> {
+        Ok(match self {
             Material::SawnLumber(mat) => {
                 let props = mat.properties();
                 UnifiedWoodProperties {
@@ -129,7 +133,7 @@ impl Material {
                 }
             }
             Material::Glulam(mat) => {
-                let props = mat.properties();
+                let props = mat.properties()?;
                 UnifiedWoodProperties {
                     fb_psi: props.fb_pos_psi, // Use positive bending as base
                     ft_psi: props.ft_psi,
@@ -142,7 +146,7 @@ impl Material {
                 }
             }
             Material::Lvl(mat) => {
-                let props = mat.properties();
+                let props = mat.properties()?;
                 UnifiedWoodProperties {
                     fb_psi: props.fb_psi,
                     ft_psi: props.ft_psi,
@@ -155,7 +159,7 @@ impl Material {
                 }
             }
             Material::Psl(mat) => {
-                let props = mat.properties();
+                let props = mat.properties()?;
                 UnifiedWoodProperties {
                     fb_psi: props.fb_psi,
                     ft_psi: props.ft_psi,
@@ -167,20 +171,20 @@ impl Material {
                     specific_gravity: props.specific_gravity,
                 }
             }
-        }
+        })
     }
 
     /// Get Fb adjusted for member depth
     ///
     /// For LVL and PSL, applies the depth adjustment factor.
     /// For sawn lumber and glulam, returns the base Fb (size factor applied separately).
-    pub fn fb_for_depth(&self, depth_in: f64) -> f64 {
-        match self {
+    pub fn fb_for_depth(&self, depth_in: f64) -> CalcResult<f64> {
+        Ok(match self {
             Material::SawnLumber(mat) => mat.properties().fb_psi,
-            Material::Glulam(mat) => mat.properties().fb_pos_psi,
-            Material::Lvl(mat) => mat.properties().adjusted_fb(depth_in),
-            Material::Psl(mat) => mat.properties().adjusted_fb(depth_in),
-        }
+            Material::Glulam(mat) => mat.properties()?.fb_pos_psi,
+            Material::Lvl(mat) => mat.properties()?.adjusted_fb(depth_in),
+            Material::Psl(mat) => mat.properties()?.adjusted_fb(depth_in),
+        })
     }
 
     /// Get display name for this material
@@ -260,7 +264,7 @@ mod tests {
             WoodGrade::No2,
         ));
 
-        let props = mat.base_properties();
+        let props = mat.base_properties().unwrap();
         assert_eq!(props.fb_psi, 900.0);
         assert_eq!(props.e_psi, 1_600_000.0);
     }
@@ -272,7 +276,7 @@ mod tests {
             GlulamLayup::Unbalanced,
         ));
 
-        let props = mat.base_properties();
+        let props = mat.base_properties().unwrap();
         assert_eq!(props.fb_psi, 2400.0);
         assert_eq!(props.e_psi, 1_800_000.0);
     }
@@ -281,7 +285,7 @@ mod tests {
     fn test_material_lvl() {
         let mat = Material::Lvl(LvlMaterial::new(LvlGrade::Standard));
 
-        let props = mat.base_properties();
+        let props = mat.base_properties().unwrap();
         assert_eq!(props.fb_psi, 2600.0);
         assert_eq!(props.e_psi, 2_000_000.0);
     }
@@ -290,7 +294,7 @@ mod tests {
     fn test_material_psl() {
         let mat = Material::Psl(PslMaterial::new(PslGrade::Standard));
 
-        let props = mat.base_properties();
+        let props = mat.base_properties().unwrap();
         assert_eq!(props.fb_psi, 2900.0);
     }
 
@@ -298,8 +302,8 @@ mod tests {
     fn test_fb_for_depth_lvl() {
         let mat = Material::Lvl(LvlMaterial::new(LvlGrade::Standard));
 
-        let fb_12 = mat.fb_for_depth(12.0);
-        let fb_18 = mat.fb_for_depth(18.0);
+        let fb_12 = mat.fb_for_depth(12.0).unwrap();
+        let fb_18 = mat.fb_for_depth(18.0).unwrap();
 
         assert_eq!(fb_12, 2600.0);
         assert!(fb_18 < fb_12);

@@ -89,7 +89,9 @@ pub fn view_items_panel<'a>(
     // ===== Wood Beams Section (if enabled) =====
     if enabled_categories.contains(&ItemCategory::WoodBeams) {
         let beams_expanded = !collapsed_sections.contains(&ItemSection::WoodBeams);
-        let beam_count = project.items.values()
+        let beam_count = project
+            .items
+            .values()
             .filter(|i| matches!(i, CalculationItem::Beam(_)))
             .count();
 
@@ -119,7 +121,8 @@ pub fn view_items_panel<'a>(
         panel_content = panel_content.push(beams_header);
 
         if beams_expanded {
-            let mut beams_list: Column<'_, Message> = column![].spacing(2).padding(Padding::from([4, 8]));
+            let mut beams_list: Column<'_, Message> =
+                column![].spacing(2).padding(Padding::from([4, 8]));
 
             // List beams
             for (id, item) in &project.items {

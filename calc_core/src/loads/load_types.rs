@@ -107,17 +107,16 @@ impl LoadType {
     pub fn is_gravity(&self) -> bool {
         matches!(
             self,
-            LoadType::Dead
-                | LoadType::Live
-                | LoadType::LiveRoof
-                | LoadType::Snow
-                | LoadType::Rain
+            LoadType::Dead | LoadType::Live | LoadType::LiveRoof | LoadType::Snow | LoadType::Rain
         )
     }
 
     /// Whether this load type is a lateral/environmental load
     pub fn is_environmental(&self) -> bool {
-        matches!(self, LoadType::Wind | LoadType::Seismic | LoadType::Snow | LoadType::Rain)
+        matches!(
+            self,
+            LoadType::Wind | LoadType::Seismic | LoadType::Snow | LoadType::Rain
+        )
     }
 }
 

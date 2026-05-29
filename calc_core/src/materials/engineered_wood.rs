@@ -9,6 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use crate::errors::{CalcError, CalcResult};
 use crate::generated::engineered_wood_data;
 
 // ============================================================================
@@ -141,12 +142,16 @@ impl GlulamProperties {
     ///
     /// Design values are loaded from TOML at compile time.
     /// For unbalanced layups, fb_neg_psi is lower than fb_pos_psi.
-    pub fn lookup(stress_class: GlulamStressClass) -> Self {
-        // Look up from generated TOML data
-        let props = engineered_wood_data::lookup_glulam(stress_class.code())
-            .unwrap_or_else(|| panic!("Missing TOML data for glulam {}", stress_class.code()));
+    ///
+    /// Returns `Err(CalcError::MaterialNotFound)` if the build script did not
+    /// emit data for this variant; the exhaustiveness test in `tests` catches
+    /// this in CI.
+    pub fn lookup(stress_class: GlulamStressClass) -> CalcResult<Self> {
+        let props = engineered_wood_data::lookup_glulam(stress_class.code()).ok_or_else(|| {
+            CalcError::material_not_found(format!("glulam {}", stress_class.code()))
+        })?;
 
-        GlulamProperties {
+        Ok(GlulamProperties {
             stress_class,
             fb_pos_psi: props.fb_pos_psi,
             fb_neg_psi: props.fb_neg_psi,
@@ -157,7 +162,7 @@ impl GlulamProperties {
             e_psi: props.e_psi,
             e_min_psi: props.e_min_psi,
             specific_gravity: props.specific_gravity,
-        }
+        })
     }
 
     /// Get Fb to use based on moment direction and layup
@@ -181,11 +186,14 @@ pub struct GlulamMaterial {
 
 impl GlulamMaterial {
     pub fn new(stress_class: GlulamStressClass, layup: GlulamLayup) -> Self {
-        Self { stress_class, layup }
+        Self {
+            stress_class,
+            layup,
+        }
     }
 
     /// Get properties for this material
-    pub fn properties(&self) -> GlulamProperties {
+    pub fn properties(&self) -> CalcResult<GlulamProperties> {
         GlulamProperties::lookup(self.stress_class)
     }
 
@@ -281,12 +289,14 @@ impl LvlProperties {
     /// Look up LVL properties by grade
     ///
     /// Design values are loaded from TOML at compile time.
-    pub fn lookup(grade: LvlGrade) -> Self {
-        // Look up from generated TOML data
+    ///
+    /// Returns `Err(CalcError::MaterialNotFound)` if the build script did not
+    /// emit data for this variant.
+    pub fn lookup(grade: LvlGrade) -> CalcResult<Self> {
         let props = engineered_wood_data::lookup_lvl(grade.code())
-            .unwrap_or_else(|| panic!("Missing TOML data for LVL {}", grade.code()));
+            .ok_or_else(|| CalcError::material_not_found(format!("LVL {}", grade.code())))?;
 
-        LvlProperties {
+        Ok(LvlProperties {
             grade,
             fb_psi: props.fb_psi,
             ft_psi: props.ft_psi,
@@ -296,7 +306,7 @@ impl LvlProperties {
             e_psi: props.e_psi,
             e_min_psi: props.e_min_psi,
             specific_gravity: props.specific_gravity,
-        }
+        })
     }
 
     /// Apply depth adjustment for LVL bending
@@ -325,7 +335,7 @@ impl LvlMaterial {
     }
 
     /// Get properties for this material
-    pub fn properties(&self) -> LvlProperties {
+    pub fn properties(&self) -> CalcResult<LvlProperties> {
         LvlProperties::lookup(self.grade)
     }
 
@@ -412,12 +422,14 @@ impl PslProperties {
     /// Look up PSL properties by grade
     ///
     /// Design values are loaded from TOML at compile time.
-    pub fn lookup(grade: PslGrade) -> Self {
-        // Look up from generated TOML data
+    ///
+    /// Returns `Err(CalcError::MaterialNotFound)` if the build script did not
+    /// emit data for this variant.
+    pub fn lookup(grade: PslGrade) -> CalcResult<Self> {
         let props = engineered_wood_data::lookup_psl(grade.code())
-            .unwrap_or_else(|| panic!("Missing TOML data for PSL {}", grade.code()));
+            .ok_or_else(|| CalcError::material_not_found(format!("PSL {}", grade.code())))?;
 
-        PslProperties {
+        Ok(PslProperties {
             grade,
             fb_psi: props.fb_psi,
             ft_psi: props.ft_psi,
@@ -427,7 +439,7 @@ impl PslProperties {
             e_psi: props.e_psi,
             e_min_psi: props.e_min_psi,
             specific_gravity: props.specific_gravity,
-        }
+        })
     }
 
     /// Apply depth adjustment for PSL bending (similar to LVL)
@@ -453,7 +465,7 @@ impl PslMaterial {
     }
 
     /// Get properties for this material
-    pub fn properties(&self) -> PslProperties {
+    pub fn properties(&self) -> CalcResult<PslProperties> {
         PslProperties::lookup(self.grade)
     }
 
@@ -484,7 +496,7 @@ mod tests {
     // Glulam tests
     #[test]
     fn test_glulam_24f_v4_properties() {
-        let props = GlulamProperties::lookup(GlulamStressClass::F24_V4);
+        let props = GlulamProperties::lookup(GlulamStressClass::F24_V4).unwrap();
         assert_eq!(props.fb_pos_psi, 2400.0);
         assert_eq!(props.fb_neg_psi, 1450.0); // Unbalanced
         assert_eq!(props.e_psi, 1_800_000.0);
@@ -492,7 +504,7 @@ mod tests {
 
     #[test]
     fn test_glulam_balanced_fb() {
-        let props = GlulamProperties::lookup(GlulamStressClass::F24_V8);
+        let props = GlulamProperties::lookup(GlulamStressClass::F24_V8).unwrap();
         // V8 is balanced layup: Fb+ = Fb- = 2400 psi per NDS-S
         assert_eq!(props.fb_pos_psi, 2400.0);
         assert_eq!(props.fb_neg_psi, 2400.0);
@@ -501,7 +513,7 @@ mod tests {
 
     #[test]
     fn test_glulam_fb_for_moment() {
-        let props = GlulamProperties::lookup(GlulamStressClass::F24_V4);
+        let props = GlulamProperties::lookup(GlulamStressClass::F24_V4).unwrap();
 
         // Positive moment
         assert_eq!(props.fb_for_moment(true, GlulamLayup::Unbalanced), 2400.0);
@@ -525,7 +537,7 @@ mod tests {
         assert_eq!(mat.stress_class, parsed.stress_class);
         assert_eq!(mat.layup, parsed.layup);
         // Verify deserialized material returns correct properties
-        let props = parsed.properties();
+        let props = parsed.properties().unwrap();
         assert_eq!(props.fb_pos_psi, 2400.0);
         assert_eq!(props.e_psi, 1_800_000.0);
     }
@@ -533,14 +545,14 @@ mod tests {
     // LVL tests
     #[test]
     fn test_lvl_standard_properties() {
-        let props = LvlProperties::lookup(LvlGrade::Standard);
+        let props = LvlProperties::lookup(LvlGrade::Standard).unwrap();
         assert_eq!(props.fb_psi, 2600.0);
         assert_eq!(props.e_psi, 2_000_000.0);
     }
 
     #[test]
     fn test_lvl_depth_adjustment() {
-        let props = LvlProperties::lookup(LvlGrade::Standard);
+        let props = LvlProperties::lookup(LvlGrade::Standard).unwrap();
         let fb_12 = props.adjusted_fb(12.0);
         let fb_18 = props.adjusted_fb(18.0);
 
@@ -559,7 +571,7 @@ mod tests {
         let parsed: LvlMaterial = serde_json::from_str(&json).unwrap();
         assert_eq!(mat.grade, parsed.grade);
         // Verify deserialized material returns correct properties
-        let props = parsed.properties();
+        let props = parsed.properties().unwrap();
         assert_eq!(props.fb_psi, 2900.0);
         assert_eq!(props.e_psi, 2_200_000.0);
     }
@@ -567,14 +579,14 @@ mod tests {
     // PSL tests
     #[test]
     fn test_psl_standard_properties() {
-        let props = PslProperties::lookup(PslGrade::Standard);
+        let props = PslProperties::lookup(PslGrade::Standard).unwrap();
         assert_eq!(props.fb_psi, 2900.0);
         assert_eq!(props.e_psi, 2_000_000.0);
     }
 
     #[test]
     fn test_psl_depth_adjustment() {
-        let props = PslProperties::lookup(PslGrade::Standard);
+        let props = PslProperties::lookup(PslGrade::Standard).unwrap();
         let fb_12 = props.adjusted_fb(12.0);
         let fb_16 = props.adjusted_fb(16.0);
 
@@ -589,7 +601,7 @@ mod tests {
         let parsed: PslMaterial = serde_json::from_str(&json).unwrap();
         assert_eq!(mat.grade, parsed.grade);
         // Verify deserialized material returns correct properties
-        let props = parsed.properties();
+        let props = parsed.properties().unwrap();
         assert_eq!(props.fb_psi, 2900.0);
         assert_eq!(props.e_psi, 2_000_000.0);
     }
@@ -599,20 +611,37 @@ mod tests {
         // Verify defaults have valid, usable properties
         let glulam = GlulamMaterial::default();
         assert_eq!(glulam.stress_class, GlulamStressClass::F24_V4);
-        let glulam_props = glulam.properties();
+        let glulam_props = glulam.properties().unwrap();
         assert!(glulam_props.fb_pos_psi > 0.0);
         assert!(glulam_props.e_psi > 1_000_000.0);
 
         let lvl = LvlMaterial::default();
         assert_eq!(lvl.grade, LvlGrade::Standard);
-        let lvl_props = lvl.properties();
+        let lvl_props = lvl.properties().unwrap();
         assert!(lvl_props.fb_psi > 0.0);
         assert!(lvl_props.e_psi > 1_000_000.0);
 
         let psl = PslMaterial::default();
         assert_eq!(psl.grade, PslGrade::Standard);
-        let psl_props = psl.properties();
+        let psl_props = psl.properties().unwrap();
         assert!(psl_props.fb_psi > 0.0);
         assert!(psl_props.e_psi > 1_000_000.0);
+    }
+
+    /// Exhaustiveness check: every Glulam/LVL/PSL enum variant must have
+    /// corresponding TOML data emitted by `build.rs`. Catches a missing TOML
+    /// entry (or a renamed code) at CI time instead of at runtime.
+    #[test]
+    fn test_all_engineered_wood_variants_have_data() {
+        for sc in GlulamStressClass::ALL {
+            GlulamProperties::lookup(sc)
+                .unwrap_or_else(|e| panic!("missing glulam data for {sc:?}: {e}"));
+        }
+        for g in LvlGrade::ALL {
+            LvlProperties::lookup(g).unwrap_or_else(|e| panic!("missing LVL data for {g:?}: {e}"));
+        }
+        for g in PslGrade::ALL {
+            PslProperties::lookup(g).unwrap_or_else(|e| panic!("missing PSL data for {g:?}: {e}"));
+        }
     }
 }

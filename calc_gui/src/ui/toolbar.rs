@@ -59,11 +59,19 @@ pub fn view_toolbar(settings_menu_open: bool) -> Element<'static, Message> {
     .spacing(4);
 
     // Settings button with dropdown indicator
-    let settings_button_text = if settings_menu_open { "Settings ▲" } else { "Settings ▼" };
+    let settings_button_text = if settings_menu_open {
+        "Settings ▲"
+    } else {
+        "Settings ▼"
+    };
     let settings_button = button(text(settings_button_text).size(11))
         .on_press(Message::ToggleSettingsMenu)
         .padding(Padding::from([4, 8]))
-        .style(if settings_menu_open { button::primary } else { button::secondary });
+        .style(if settings_menu_open {
+            button::primary
+        } else {
+            button::secondary
+        });
 
     row![
         file_buttons,
@@ -77,7 +85,10 @@ pub fn view_toolbar(settings_menu_open: bool) -> Element<'static, Message> {
 
 /// Render the settings dropdown menu (native version with update checking)
 #[cfg(not(target_arch = "wasm32"))]
-pub fn view_settings_menu(dark_mode: bool, update_status: &UpdateStatus) -> Element<'static, Message> {
+pub fn view_settings_menu(
+    dark_mode: bool,
+    update_status: &UpdateStatus,
+) -> Element<'static, Message> {
     let theme_label = if dark_mode { "Light Mode" } else { "Dark Mode" };
 
     // Build update button based on status
@@ -89,26 +100,22 @@ pub fn view_settings_menu(dark_mode: bool, update_status: &UpdateStatus) -> Elem
                 .width(Length::Fill)
                 .style(button::secondary)
         }
-        UpdateStatus::Checking => {
-            button(text("Checking...").size(10).color([0.5, 0.5, 0.5]))
-                .padding(Padding::from([4, 12]))
-                .width(Length::Fill)
-                .style(button::secondary)
-        }
-        UpdateStatus::UpToDate => {
-            button(text("Up to Date").size(10))
-                .on_press(Message::CheckForUpdates)
-                .padding(Padding::from([4, 12]))
-                .width(Length::Fill)
-                .style(button::secondary)
-        }
-        UpdateStatus::UpdateAvailable { version, html_url, .. } => {
-            button(text(format!("Update to v{}", version)).size(10))
-                .on_press(Message::OpenUpdateUrl(html_url.clone()))
-                .padding(Padding::from([4, 12]))
-                .width(Length::Fill)
-                .style(button::success)
-        }
+        UpdateStatus::Checking => button(text("Checking...").size(10).color([0.5, 0.5, 0.5]))
+            .padding(Padding::from([4, 12]))
+            .width(Length::Fill)
+            .style(button::secondary),
+        UpdateStatus::UpToDate => button(text("Up to Date").size(10))
+            .on_press(Message::CheckForUpdates)
+            .padding(Padding::from([4, 12]))
+            .width(Length::Fill)
+            .style(button::secondary),
+        UpdateStatus::UpdateAvailable {
+            version, html_url, ..
+        } => button(text(format!("Update to v{}", version)).size(10))
+            .on_press(Message::OpenUpdateUrl(html_url.clone()))
+            .padding(Padding::from([4, 12]))
+            .width(Length::Fill)
+            .style(button::success),
     };
 
     let dropdown_content = column![

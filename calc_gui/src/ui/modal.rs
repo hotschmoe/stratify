@@ -188,27 +188,28 @@ fn view_category_picker_modal() -> Element<'static, Message> {
         }
 
         // Section header (tab-like styling)
-        let section_header = container(
-            text(group.name()).size(11)
-        )
-        .padding(Padding::from([4, 8]))
-        .style(|_theme: &iced::Theme| container::Style {
-            text_color: Some(iced::Color::from_rgb(0.4, 0.4, 0.4)),
-            background: Some(iced::Background::Color(iced::Color::from_rgb(0.95, 0.95, 0.95))),
-            border: iced::Border {
-                color: iced::Color::from_rgb(0.85, 0.85, 0.85),
-                width: 1.0,
-                radius: 4.0.into(),
-            },
-            shadow: iced::Shadow::default(),
-            snap: false,
-        })
-        .width(Length::Fill);
+        let section_header = container(text(group.name()).size(11))
+            .padding(Padding::from([4, 8]))
+            .style(|_theme: &iced::Theme| container::Style {
+                text_color: Some(iced::Color::from_rgb(0.4, 0.4, 0.4)),
+                background: Some(iced::Background::Color(iced::Color::from_rgb(
+                    0.95, 0.95, 0.95,
+                ))),
+                border: iced::Border {
+                    color: iced::Color::from_rgb(0.85, 0.85, 0.85),
+                    width: 1.0,
+                    radius: 4.0.into(),
+                },
+                shadow: iced::Shadow::default(),
+                snap: false,
+            })
+            .width(Length::Fill);
 
         sections = sections.push(section_header);
 
         // Category items within section
-        let mut category_buttons: Column<'_, Message> = column![].spacing(4).padding(Padding::from([4, 0]));
+        let mut category_buttons: Column<'_, Message> =
+            column![].spacing(4).padding(Padding::from([4, 0]));
 
         for (category, is_implemented) in categories {
             let label = if is_implemented {
@@ -220,24 +221,16 @@ fn view_category_picker_modal() -> Element<'static, Message> {
             };
 
             let btn = if is_implemented {
-                button(
-                    row![label]
-                        .align_y(Alignment::Center)
-                        .width(Length::Fill)
-                )
-                .on_press(Message::AddCategory(category))
-                .padding(Padding::from([8, 12]))
-                .style(button::secondary)
-                .width(Length::Fill)
+                button(row![label].align_y(Alignment::Center).width(Length::Fill))
+                    .on_press(Message::AddCategory(category))
+                    .padding(Padding::from([8, 12]))
+                    .style(button::secondary)
+                    .width(Length::Fill)
             } else {
-                button(
-                    row![label]
-                        .align_y(Alignment::Center)
-                        .width(Length::Fill)
-                )
-                .padding(Padding::from([8, 12]))
-                .style(button::secondary)
-                .width(Length::Fill)
+                button(row![label].align_y(Alignment::Center).width(Length::Fill))
+                    .padding(Padding::from([8, 12]))
+                    .style(button::secondary)
+                    .width(Length::Fill)
                 // No on_press for unimplemented categories
             };
 
@@ -259,7 +252,9 @@ fn view_category_picker_modal() -> Element<'static, Message> {
         Space::new().height(16),
         scrollable(sections).height(Length::Fixed(250.0)),
         Space::new().height(16),
-        container(cancel_btn).align_x(iced::alignment::Horizontal::Right).width(Length::Fill),
+        container(cancel_btn)
+            .align_x(iced::alignment::Horizontal::Right)
+            .width(Length::Fill),
     ]
     .width(Length::Fixed(350.0));
 

@@ -11,13 +11,14 @@ use iced::widget::{
 use iced::{Alignment, Element, Length, Padding};
 
 use calc_core::calculations::continuous_beam::SupportType;
+use calc_core::loads::LoadType;
 use calc_core::materials::{
-    GlulamLayup, GlulamStressClass, LumberSize, LvlGrade, PlyCount, PslGrade, WoodGrade, WoodSpecies,
+    GlulamLayup, GlulamStressClass, LumberSize, LvlGrade, PlyCount, PslGrade, WoodGrade,
+    WoodSpecies,
 };
 use calc_core::nds_factors::{
     FlatUse, Incising, LoadDuration, RepetitiveMember, Temperature, WetService,
 };
-use calc_core::loads::LoadType;
 use calc_core::section_deductions::NotchLocation;
 
 use crate::{App, DistributionType, InputTab, MaterialType, Message};
@@ -42,11 +43,9 @@ pub fn view(app: &App) -> Column<'_, Message> {
 
     // Only show Delete button for existing beams (always visible regardless of tab)
     let action_buttons = if app.selected_beam_id().is_some() {
-        row![
-            button("Delete Beam")
-                .on_press(Message::DeleteSelectedBeam)
-                .padding(Padding::from([6, 12])),
-        ]
+        row![button("Delete Beam")
+            .on_press(Message::DeleteSelectedBeam)
+            .padding(Padding::from([6, 12])),]
         .spacing(6)
     } else {
         row![].spacing(6)
@@ -92,17 +91,18 @@ fn view_tab_bar(selected: InputTab) -> Element<'static, Message> {
 /// Description tab: beam properties (label, span, dimensions)
 fn view_description_tab<'a>(app: &'a App, editing_label: &'a str) -> Element<'a, Message> {
     // Section dimensions - show size dropdown for sawn lumber
-    let section_inputs: Element<'_, Message> = if app.selected_material_type == MaterialType::SawnLumber {
-        view_sawn_lumber_section(app)
-    } else {
-        // Engineered wood uses manual width/depth inputs
-        column![
-            labeled_input("Width (in):", &app.width_in, Message::WidthChanged),
-            labeled_input("Depth (in):", &app.depth_in, Message::DepthChanged),
-        ]
-        .spacing(6)
-        .into()
-    };
+    let section_inputs: Element<'_, Message> =
+        if app.selected_material_type == MaterialType::SawnLumber {
+            view_sawn_lumber_section(app)
+        } else {
+            // Engineered wood uses manual width/depth inputs
+            column![
+                labeled_input("Width (in):", &app.width_in, Message::WidthChanged),
+                labeled_input("Depth (in):", &app.depth_in, Message::DepthChanged),
+            ]
+            .spacing(6)
+            .into()
+        };
 
     // Span configuration section
     let span_section: Element<'_, Message> = if app.multi_span_mode {
@@ -157,7 +157,11 @@ fn view_sawn_lumber_section(app: &App) -> Element<'_, Message> {
     let designation_text = if app.selected_ply_count == PlyCount::Single {
         app.selected_lumber_size.display_name().to_string()
     } else {
-        format!("{}{}", app.selected_ply_count.prefix(), app.selected_lumber_size.display_name())
+        format!(
+            "{}{}",
+            app.selected_ply_count.prefix(),
+            app.selected_lumber_size.display_name()
+        )
     };
 
     column![
@@ -183,10 +187,16 @@ fn view_sawn_lumber_section(app: &App) -> Element<'_, Message> {
         ]
         .align_y(Alignment::Center),
         row![
-            text("Actual:").size(10).width(Length::Fixed(80.0)).color([0.5, 0.5, 0.5]),
-            text(format!("{} = {}\" x {}\"", designation_text, app.width_in, app.depth_in))
+            text("Actual:")
                 .size(10)
+                .width(Length::Fixed(80.0))
                 .color([0.5, 0.5, 0.5]),
+            text(format!(
+                "{} = {}\" x {}\"",
+                designation_text, app.width_in, app.depth_in
+            ))
+            .size(10)
+            .color([0.5, 0.5, 0.5]),
         ]
         .align_y(Alignment::Center),
         // Custom size inputs (only shown if custom is selected)
@@ -223,7 +233,9 @@ fn view_span_table(app: &App) -> Element<'_, Message> {
         let row_id = span_row.id;
         let span_num = i + 1;
 
-        let num_label = text(format!("{}.", span_num)).size(10).width(Length::Fixed(20.0));
+        let num_label = text(format!("{}.", span_num))
+            .size(10)
+            .width(Length::Fixed(20.0));
 
         let length_input = text_input("12.0", &span_row.length_ft)
             .on_input(move |s| Message::SpanLengthChanged(row_id, s))
@@ -249,14 +261,10 @@ fn view_span_table(app: &App) -> Element<'_, Message> {
             Space::new().width(30).into()
         };
 
-        let span_row_widget: Row<'_, Message> = row![
-            num_label,
-            length_input,
-            support_picker,
-            delete_btn,
-        ]
-        .spacing(4)
-        .align_y(Alignment::Center);
+        let span_row_widget: Row<'_, Message> =
+            row![num_label, length_input, support_picker, delete_btn,]
+                .spacing(4)
+                .align_y(Alignment::Center);
 
         span_rows = span_rows.push(span_row_widget);
     }
@@ -281,7 +289,9 @@ fn view_span_table(app: &App) -> Element<'_, Message> {
         .padding(Padding::from([4, 8]));
 
     // Total length display
-    let total_length: f64 = app.span_table.iter()
+    let total_length: f64 = app
+        .span_table
+        .iter()
         .filter_map(|s| s.length_ft.parse::<f64>().ok())
         .sum();
 
@@ -329,11 +339,9 @@ fn view_load_table(app: &App) -> Element<'_, Message> {
     for load_row in &app.load_table {
         let row_id = load_row.id;
 
-        let type_picker = pick_list(
-            &LoadType::ALL[..],
-            Some(load_row.load_type),
-            move |lt| Message::LoadTypeChanged(row_id, lt),
-        )
+        let type_picker = pick_list(&LoadType::ALL[..], Some(load_row.load_type), move |lt| {
+            Message::LoadTypeChanged(row_id, lt)
+        })
         .width(Length::Fixed(45.0))
         .text_size(10);
 
@@ -353,36 +361,30 @@ fn view_load_table(app: &App) -> Element<'_, Message> {
 
         // Position input varies by distribution type
         let pos_widget: Element<'_, Message> = match load_row.distribution {
-            DistributionType::UniformFull => {
-                text("-").size(10).width(Length::Fixed(70.0)).into()
-            }
-            DistributionType::Point => {
-                text_input("ft", &load_row.position)
-                    .on_input(move |s| Message::LoadPositionChanged(row_id, s))
-                    .width(Length::Fixed(70.0))
-                    .padding(2)
-                    .size(10)
-                    .into()
-            }
-            DistributionType::UniformPartial => {
-                row![
-                    text_input("0", &load_row.start_ft)
-                        .on_input(move |s| Message::LoadStartChanged(row_id, s))
-                        .width(Length::Fixed(32.0))
-                        .padding(2)
-                        .size(10),
-                    text("-").size(10),
-                    text_input("L", &load_row.end_ft)
-                        .on_input(move |s| Message::LoadEndChanged(row_id, s))
-                        .width(Length::Fixed(32.0))
-                        .padding(2)
-                        .size(10),
-                ]
-                .spacing(2)
-                .align_y(Alignment::Center)
+            DistributionType::UniformFull => text("-").size(10).width(Length::Fixed(70.0)).into(),
+            DistributionType::Point => text_input("ft", &load_row.position)
+                .on_input(move |s| Message::LoadPositionChanged(row_id, s))
                 .width(Length::Fixed(70.0))
-                .into()
-            }
+                .padding(2)
+                .size(10)
+                .into(),
+            DistributionType::UniformPartial => row![
+                text_input("0", &load_row.start_ft)
+                    .on_input(move |s| Message::LoadStartChanged(row_id, s))
+                    .width(Length::Fixed(32.0))
+                    .padding(2)
+                    .size(10),
+                text("-").size(10),
+                text_input("L", &load_row.end_ft)
+                    .on_input(move |s| Message::LoadEndChanged(row_id, s))
+                    .width(Length::Fixed(32.0))
+                    .padding(2)
+                    .size(10),
+            ]
+            .spacing(2)
+            .align_y(Alignment::Center)
+            .width(Length::Fixed(70.0))
+            .into(),
         };
 
         let trib_input = text_input("", &load_row.tributary_width)
@@ -633,60 +635,54 @@ fn view_section_deductions(app: &App) -> Element<'_, Message> {
     // Notch depth inputs (shown only if notches are selected)
     let notch_depths: Element<'_, Message> = match app.selected_notch_location {
         NotchLocation::None => Space::new().height(0).into(),
-        NotchLocation::LeftSupport => {
+        NotchLocation::LeftSupport => row![
+            text("Depth (in):").size(10).width(Length::Fixed(60.0)),
+            text_input("0.0", &app.notch_depth_left)
+                .on_input(Message::NotchDepthLeftChanged)
+                .width(Length::Fixed(60.0))
+                .padding(2)
+                .size(10),
+            text("left").size(10).color([0.5, 0.5, 0.5]),
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center)
+        .into(),
+        NotchLocation::RightSupport => row![
+            text("Depth (in):").size(10).width(Length::Fixed(60.0)),
+            text_input("0.0", &app.notch_depth_right)
+                .on_input(Message::NotchDepthRightChanged)
+                .width(Length::Fixed(60.0))
+                .padding(2)
+                .size(10),
+            text("right").size(10).color([0.5, 0.5, 0.5]),
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center)
+        .into(),
+        NotchLocation::BothSupports => column![
             row![
-                text("Depth (in):").size(10).width(Length::Fixed(60.0)),
+                text("Left (in):").size(10).width(Length::Fixed(60.0)),
                 text_input("0.0", &app.notch_depth_left)
                     .on_input(Message::NotchDepthLeftChanged)
                     .width(Length::Fixed(60.0))
                     .padding(2)
                     .size(10),
-                text("left").size(10).color([0.5, 0.5, 0.5]),
             ]
             .spacing(4)
-            .align_y(Alignment::Center)
-            .into()
-        }
-        NotchLocation::RightSupport => {
+            .align_y(Alignment::Center),
             row![
-                text("Depth (in):").size(10).width(Length::Fixed(60.0)),
+                text("Right (in):").size(10).width(Length::Fixed(60.0)),
                 text_input("0.0", &app.notch_depth_right)
                     .on_input(Message::NotchDepthRightChanged)
                     .width(Length::Fixed(60.0))
                     .padding(2)
                     .size(10),
-                text("right").size(10).color([0.5, 0.5, 0.5]),
             ]
             .spacing(4)
-            .align_y(Alignment::Center)
-            .into()
-        }
-        NotchLocation::BothSupports => {
-            column![
-                row![
-                    text("Left (in):").size(10).width(Length::Fixed(60.0)),
-                    text_input("0.0", &app.notch_depth_left)
-                        .on_input(Message::NotchDepthLeftChanged)
-                        .width(Length::Fixed(60.0))
-                        .padding(2)
-                        .size(10),
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center),
-                row![
-                    text("Right (in):").size(10).width(Length::Fixed(60.0)),
-                    text_input("0.0", &app.notch_depth_right)
-                        .on_input(Message::NotchDepthRightChanged)
-                        .width(Length::Fixed(60.0))
-                        .padding(2)
-                        .size(10),
-                ]
-                .spacing(4)
-                .align_y(Alignment::Center),
-            ]
-            .spacing(4)
-            .into()
-        }
+            .align_y(Alignment::Center),
+        ]
+        .spacing(4)
+        .into(),
     };
 
     // Holes section

@@ -29,29 +29,20 @@
 //! println!("Governing load: {} psf", max_load);
 //! ```
 
-pub mod load_types;
 pub mod combinations;
 pub mod discrete;
+pub mod load_types;
 
-pub use load_types::LoadType;
 pub use combinations::{
-    LoadCombination,
-    GoverningResults,
-    asce7_asd_combinations,
-    asce7_lrfd_combinations,
-    find_governing_combination,
-    find_minimum_combination,
-    find_governing_min_max,
+    asce7_asd_combinations, asce7_lrfd_combinations, find_governing_combination,
+    find_governing_min_max, find_minimum_combination, GoverningResults, LoadCombination,
 };
-pub use discrete::{
-    LoadDistribution,
-    DiscreteLoad,
-    EnhancedLoadCase,
-};
+pub use discrete::{DiscreteLoad, EnhancedLoadCase, LoadDistribution};
+pub use load_types::LoadType;
 
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use crate::errors::{CalcError, CalcResult};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Design methodology selection
 ///
@@ -260,8 +251,7 @@ mod tests {
 
     #[test]
     fn test_load_case_has() {
-        let case = LoadCase::new("Test")
-            .with_load(LoadType::Dead, 10.0);
+        let case = LoadCase::new("Test").with_load(LoadType::Dead, 10.0);
 
         assert!(case.has(LoadType::Dead));
         assert!(!case.has(LoadType::Live));
@@ -278,8 +268,7 @@ mod tests {
 
     #[test]
     fn test_load_case_validation_negative_gravity() {
-        let case = LoadCase::new("Invalid")
-            .with_load(LoadType::Dead, -10.0);
+        let case = LoadCase::new("Invalid").with_load(LoadType::Dead, -10.0);
 
         assert!(case.validate().is_err());
     }
@@ -342,8 +331,7 @@ mod tests {
 
     #[test]
     fn test_all_combination_results() {
-        let case = LoadCase::new("Test")
-            .with_load(LoadType::Dead, 10.0);
+        let case = LoadCase::new("Test").with_load(LoadType::Dead, 10.0);
 
         let results = case.all_combination_results(DesignMethod::Asd);
         assert!(!results.is_empty());

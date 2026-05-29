@@ -446,7 +446,7 @@ mod tests {
     fn test_beam_designation() {
         let beam = BeamDesignation::new(LumberSize::L2x10, PlyCount::Double);
         assert_eq!(beam.display_name(), "2-2x10");
-        assert_eq!(beam.total_width_in(), 3.0);  // 1.5 * 2
+        assert_eq!(beam.total_width_in(), 3.0); // 1.5 * 2
         assert_eq!(beam.depth_in(), 9.25);
     }
 
@@ -459,18 +459,37 @@ mod tests {
         assert!((double.total_area_in2() - 2.0 * single.total_area_in2()).abs() < 0.001);
 
         // Double should have 2x the section modulus
-        assert!((double.total_section_modulus_in3() - 2.0 * single.total_section_modulus_in3()).abs() < 0.01);
+        assert!(
+            (double.total_section_modulus_in3() - 2.0 * single.total_section_modulus_in3()).abs()
+                < 0.01
+        );
 
         // Double should have 2x the moment of inertia
-        assert!((double.total_moment_of_inertia_in4() - 2.0 * single.total_moment_of_inertia_in4()).abs() < 0.1);
+        assert!(
+            (double.total_moment_of_inertia_in4() - 2.0 * single.total_moment_of_inertia_in4())
+                .abs()
+                < 0.1
+        );
     }
 
     #[test]
     fn test_from_actual_dimensions() {
-        assert_eq!(LumberSize::from_actual_dimensions(1.5, 9.25), LumberSize::L2x10);
-        assert_eq!(LumberSize::from_actual_dimensions(1.5, 11.25), LumberSize::L2x12);
-        assert_eq!(LumberSize::from_actual_dimensions(3.5, 9.25), LumberSize::L4x10);
-        assert_eq!(LumberSize::from_actual_dimensions(2.0, 10.0), LumberSize::Custom);
+        assert_eq!(
+            LumberSize::from_actual_dimensions(1.5, 9.25),
+            LumberSize::L2x10
+        );
+        assert_eq!(
+            LumberSize::from_actual_dimensions(1.5, 11.25),
+            LumberSize::L2x12
+        );
+        assert_eq!(
+            LumberSize::from_actual_dimensions(3.5, 9.25),
+            LumberSize::L4x10
+        );
+        assert_eq!(
+            LumberSize::from_actual_dimensions(2.0, 10.0),
+            LumberSize::Custom
+        );
     }
 
     #[test]

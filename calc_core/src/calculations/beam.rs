@@ -462,7 +462,7 @@ pub fn calculate(input: &BeamInput, method: DesignMethod) -> CalcResult<BeamResu
     input.validate()?;
 
     // Get material properties (unified interface for all material types)
-    let props = input.material.base_properties();
+    let props = input.material.base_properties()?;
 
     // Section properties
     let s = input.section_modulus_in3();
@@ -481,10 +481,7 @@ pub fn calculate(input: &BeamInput, method: DesignMethod) -> CalcResult<BeamResu
 
     // Add self-weight as dead load if enabled
     if input.load_case.include_self_weight {
-        loads_by_type.push((
-            LoadType::Dead,
-            SingleLoad::uniform_full(self_wt),
-        ));
+        loads_by_type.push((LoadType::Dead, SingleLoad::uniform_full(self_wt)));
     }
 
     // Convert each DiscreteLoad to SingleLoad
@@ -493,19 +490,18 @@ pub fn calculate(input: &BeamInput, method: DesignMethod) -> CalcResult<BeamResu
         let load_type = discrete_load.load_type;
 
         let single = match &discrete_load.distribution {
-            LoadDistribution::Point { position_ft } => {
-                SingleLoad::point(magnitude, *position_ft)
-            }
-            LoadDistribution::UniformFull => {
-                SingleLoad::uniform_full(magnitude)
-            }
+            LoadDistribution::Point { position_ft } => SingleLoad::point(magnitude, *position_ft),
+            LoadDistribution::UniformFull => SingleLoad::uniform_full(magnitude),
             LoadDistribution::UniformPartial { start_ft, end_ft } => {
                 SingleLoad::uniform_partial(magnitude, *start_ft, *end_ft)
             }
-            LoadDistribution::Moment { position_ft } => {
-                SingleLoad::moment(magnitude, *position_ft)
-            }
-            LoadDistribution::Trapezoidal { start_ft, end_ft, start_magnitude, end_magnitude } => {
+            LoadDistribution::Moment { position_ft } => SingleLoad::moment(magnitude, *position_ft),
+            LoadDistribution::Trapezoidal {
+                start_ft,
+                end_ft,
+                start_magnitude,
+                end_magnitude,
+            } => {
                 // Approximate trapezoidal as partial uniform with average magnitude
                 let avg_mag = (start_magnitude + end_magnitude) / 2.0;
                 SingleLoad::uniform_partial(avg_mag, *start_ft, *end_ft)
@@ -543,19 +539,23 @@ pub fn calculate(input: &BeamInput, method: DesignMethod) -> CalcResult<BeamResu
 
             // Create factored copy of the load
             let factored_load = match single_load {
-                SingleLoad::Point { magnitude_lb, position_ft } => {
-                    SingleLoad::point(magnitude_lb * factor, *position_ft)
-                }
+                SingleLoad::Point {
+                    magnitude_lb,
+                    position_ft,
+                } => SingleLoad::point(magnitude_lb * factor, *position_ft),
                 SingleLoad::UniformFull { magnitude_plf } => {
                     total_factored_plf += magnitude_plf * factor;
                     SingleLoad::uniform_full(magnitude_plf * factor)
                 }
-                SingleLoad::UniformPartial { magnitude_plf, start_ft, end_ft } => {
-                    SingleLoad::uniform_partial(magnitude_plf * factor, *start_ft, *end_ft)
-                }
-                SingleLoad::Moment { magnitude_ftlb, position_ft } => {
-                    SingleLoad::moment(magnitude_ftlb * factor, *position_ft)
-                }
+                SingleLoad::UniformPartial {
+                    magnitude_plf,
+                    start_ft,
+                    end_ft,
+                } => SingleLoad::uniform_partial(magnitude_plf * factor, *start_ft, *end_ft),
+                SingleLoad::Moment {
+                    magnitude_ftlb,
+                    position_ft,
+                } => SingleLoad::moment(magnitude_ftlb * factor, *position_ft),
             };
 
             analysis.add_load(factored_load);
@@ -612,7 +612,7 @@ pub fn calculate(input: &BeamInput, method: DesignMethod) -> CalcResult<BeamResu
     };
 
     // Get base Fb adjusted for depth (handles LVL/PSL depth factor automatically)
-    let fb_depth_adjusted = input.material.fb_for_depth(input.depth_in);
+    let fb_depth_adjusted = input.material.fb_for_depth(input.depth_in)?;
 
     // Calculate beam stability factor C_L
     // If compression edge is braced, C_L = 1.0
@@ -716,7 +716,9 @@ pub fn calculate(input: &BeamInput, method: DesignMethod) -> CalcResult<BeamResu
         // Diagram data from analysis (scale deflection for adjusted E)
         shear_diagram: analysis_results.shear_diagram,
         moment_diagram: analysis_results.moment_diagram,
-        deflection_diagram: analysis_results.deflection_diagram.into_iter()
+        deflection_diagram: analysis_results
+            .deflection_diagram
+            .into_iter()
             .map(|(x, d)| (x, d * (props.e_psi / e_adjusted)))
             .collect(),
     })
@@ -726,7 +728,10 @@ pub fn calculate(input: &BeamInput, method: DesignMethod) -> CalcResult<BeamResu
 mod tests {
     use super::*;
     use crate::loads::DiscreteLoad;
-    use crate::materials::{WoodGrade, WoodSpecies, WoodMaterial, GlulamMaterial, GlulamStressClass, GlulamLayup, LvlMaterial, LvlGrade};
+    use crate::materials::{
+        GlulamLayup, GlulamMaterial, GlulamStressClass, LvlGrade, LvlMaterial, WoodGrade,
+        WoodMaterial, WoodSpecies,
+    };
 
     /// Create a test beam with D+L = 150 plf total (like old uniform_load_plf: 150.0)
     fn test_beam() -> BeamInput {

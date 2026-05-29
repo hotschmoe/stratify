@@ -28,7 +28,11 @@ fn main() {
     // Write the file
     match fs::write(output_path, &markdown) {
         Ok(()) => {
-            println!("Successfully wrote {} bytes to {}", markdown.len(), output_path.display());
+            println!(
+                "Successfully wrote {} bytes to {}",
+                markdown.len(),
+                output_path.display()
+            );
             println!("EQUATIONS.md has been updated.");
         }
         Err(e) => {

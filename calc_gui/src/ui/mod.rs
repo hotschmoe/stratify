@@ -21,12 +21,12 @@
 //! - `shared/diagrams` - Canvas drawing for shear/moment/deflection diagrams
 
 // Top-level panels
-pub mod modal;
-pub mod toolbar;
-pub mod items_panel;
 pub mod input_panel;
+pub mod items_panel;
+pub mod modal;
 pub mod results_panel;
 pub mod status_bar;
+pub mod toolbar;
 
 // Input panel children
 pub mod input_project_info;

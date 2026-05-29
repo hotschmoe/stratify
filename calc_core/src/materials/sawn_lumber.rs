@@ -333,7 +333,11 @@ impl WoodMaterial {
 
     /// Get display name
     pub fn display_name(&self) -> String {
-        format!("{} {}", self.species.display_name(), self.grade.display_name())
+        format!(
+            "{} {}",
+            self.species.display_name(),
+            self.grade.display_name()
+        )
     }
 }
 
@@ -368,9 +372,15 @@ mod tests {
 
     #[test]
     fn test_grade_parsing() {
-        assert_eq!(WoodGrade::from_str_flexible("No.2").unwrap(), WoodGrade::No2);
+        assert_eq!(
+            WoodGrade::from_str_flexible("No.2").unwrap(),
+            WoodGrade::No2
+        );
         assert_eq!(WoodGrade::from_str_flexible("#2").unwrap(), WoodGrade::No2);
-        assert_eq!(WoodGrade::from_str_flexible("SS").unwrap(), WoodGrade::SelectStructural);
+        assert_eq!(
+            WoodGrade::from_str_flexible("SS").unwrap(),
+            WoodGrade::SelectStructural
+        );
     }
 
     #[test]

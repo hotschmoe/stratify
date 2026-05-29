@@ -49,11 +49,17 @@ impl NotchLocation {
     }
 
     pub fn has_notch_at_left(&self) -> bool {
-        matches!(self, NotchLocation::LeftSupport | NotchLocation::BothSupports)
+        matches!(
+            self,
+            NotchLocation::LeftSupport | NotchLocation::BothSupports
+        )
     }
 
     pub fn has_notch_at_right(&self) -> bool {
-        matches!(self, NotchLocation::RightSupport | NotchLocation::BothSupports)
+        matches!(
+            self,
+            NotchLocation::RightSupport | NotchLocation::BothSupports
+        )
     }
 
     pub fn has_any_notch(&self) -> bool {

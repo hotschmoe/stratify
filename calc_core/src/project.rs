@@ -76,7 +76,11 @@ impl Project {
     /// let project = Project::new("John Doe", "25-001", "Client Corp");
     /// assert_eq!(project.meta.engineer, "John Doe");
     /// ```
-    pub fn new(engineer: impl Into<String>, job_id: impl Into<String>, client: impl Into<String>) -> Self {
+    pub fn new(
+        engineer: impl Into<String>,
+        job_id: impl Into<String>,
+        client: impl Into<String>,
+    ) -> Self {
         let now = Utc::now();
         Project {
             meta: ProjectMetadata {
@@ -245,18 +249,13 @@ impl Default for GlobalSettings {
 }
 
 /// Risk category per ASCE 7
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RiskCategory {
     I,
+    #[default]
     II,
     III,
     IV,
-}
-
-impl Default for RiskCategory {
-    fn default() -> Self {
-        RiskCategory::II
-    }
 }
 
 /// Default materials for new calculations.
@@ -312,8 +311,8 @@ mod tests {
 
     #[test]
     fn test_add_remove_item() {
-        use crate::calculations::{ContinuousBeamInput, CalculationItem};
-        use crate::loads::{EnhancedLoadCase, DiscreteLoad, LoadType};
+        use crate::calculations::{CalculationItem, ContinuousBeamInput};
+        use crate::loads::{DiscreteLoad, EnhancedLoadCase, LoadType};
         use crate::materials::{Material, WoodGrade, WoodMaterial, WoodSpecies};
 
         let mut project = Project::new("Engineer", "25-001", "Client");

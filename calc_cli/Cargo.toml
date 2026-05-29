@@ -20,3 +20,9 @@ calc_core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 clap = { workspace = true }
+
+[dev-dependencies]
+# Integration tests in `tests/` re-use these to deserialize CLI output as the
+# same calc_core types the production code emits.
+calc_core = { workspace = true }
+serde_json = { workspace = true }

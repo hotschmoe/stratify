@@ -179,7 +179,11 @@ impl FileLock {
             .truncate(true)
             .open(&lock_path)
             .map_err(|e| {
-                CalcError::file_error("create lock", lock_path.display().to_string(), e.to_string())
+                CalcError::file_error(
+                    "create lock",
+                    lock_path.display().to_string(),
+                    e.to_string(),
+                )
             })?;
 
         // Try to acquire exclusive OS-level lock (non-blocking).
@@ -193,11 +197,10 @@ impl FileLock {
         })?;
 
         // Write lock info to the file using the same handle
-        let lock_json = serde_json::to_string_pretty(&info).map_err(|e| {
-            CalcError::SerializationError {
+        let lock_json =
+            serde_json::to_string_pretty(&info).map_err(|e| CalcError::SerializationError {
                 reason: e.to_string(),
-            }
-        })?;
+            })?;
 
         lock_file.write_all(lock_json.as_bytes()).map_err(|e| {
             CalcError::file_error("write lock", lock_path.display().to_string(), e.to_string())
@@ -381,25 +384,38 @@ fn is_lock_stale(info: &LockInfo) -> bool {
 /// ```
 pub fn save_project(project: &Project, path: &Path) -> CalcResult<()> {
     // Serialize to JSON
-    let json = serde_json::to_string_pretty(project).map_err(|e| CalcError::SerializationError {
-        reason: e.to_string(),
-    })?;
+    let json =
+        serde_json::to_string_pretty(project).map_err(|e| CalcError::SerializationError {
+            reason: e.to_string(),
+        })?;
 
     // Create temp file path
     let tmp_path = path.with_extension("stf.tmp");
 
     // Write to temp file
     let mut tmp_file = File::create(&tmp_path).map_err(|e| {
-        CalcError::file_error("create temp file", tmp_path.display().to_string(), e.to_string())
+        CalcError::file_error(
+            "create temp file",
+            tmp_path.display().to_string(),
+            e.to_string(),
+        )
     })?;
 
     tmp_file.write_all(json.as_bytes()).map_err(|e| {
-        CalcError::file_error("write temp file", tmp_path.display().to_string(), e.to_string())
+        CalcError::file_error(
+            "write temp file",
+            tmp_path.display().to_string(),
+            e.to_string(),
+        )
     })?;
 
     // Sync to disk
     tmp_file.sync_all().map_err(|e| {
-        CalcError::file_error("sync temp file", tmp_path.display().to_string(), e.to_string())
+        CalcError::file_error(
+            "sync temp file",
+            tmp_path.display().to_string(),
+            e.to_string(),
+        )
     })?;
 
     // Atomic rename
@@ -437,14 +453,12 @@ pub fn save_project(project: &Project, path: &Path) -> CalcResult<()> {
 /// ```
 pub fn load_project(path: &Path) -> CalcResult<Project> {
     // Read file contents
-    let mut file = File::open(path).map_err(|e| {
-        CalcError::file_error("open", path.display().to_string(), e.to_string())
-    })?;
+    let mut file = File::open(path)
+        .map_err(|e| CalcError::file_error("open", path.display().to_string(), e.to_string()))?;
 
     let mut contents = String::new();
-    file.read_to_string(&mut contents).map_err(|e| {
-        CalcError::file_error("read", path.display().to_string(), e.to_string())
-    })?;
+    file.read_to_string(&mut contents)
+        .map_err(|e| CalcError::file_error("read", path.display().to_string(), e.to_string()))?;
 
     // Parse JSON
     let project: Project =
@@ -499,14 +513,16 @@ fn validate_version(file_version: &str) -> CalcResult<()> {
     }
 
     // For 0.x versions, minor version must also match (breaking changes allowed)
-    if current_parts[0] == 0 && file_parts.len() > 1 && current_parts.len() > 1 {
-        if file_parts[1] > current_parts[1] {
-            // File is newer than we support
-            return Err(CalcError::VersionMismatch {
-                file_version: file_version.to_string(),
-                expected_version: SCHEMA_VERSION.to_string(),
-            });
-        }
+    if current_parts[0] == 0
+        && file_parts.len() > 1
+        && current_parts.len() > 1
+        && file_parts[1] > current_parts[1]
+    {
+        // File is newer than we support
+        return Err(CalcError::VersionMismatch {
+            file_version: file_version.to_string(),
+            expected_version: SCHEMA_VERSION.to_string(),
+        });
     }
 
     Ok(())

@@ -6,7 +6,9 @@
 use iced::widget::canvas::{self, Frame, Geometry, Path, Stroke, Text};
 use iced::{Color, Point, Rectangle, Renderer, Theme};
 
-use calc_core::calculations::continuous_beam::{ContinuousBeamInput, ContinuousBeamResult, SupportType};
+use calc_core::calculations::continuous_beam::{
+    ContinuousBeamInput, ContinuousBeamResult, SupportType,
+};
 use calc_core::loads::{LoadDistribution, LoadType};
 
 use crate::Message;
@@ -47,7 +49,9 @@ pub struct BeamDiagramData {
 impl BeamDiagramData {
     pub fn from_calc(input: &ContinuousBeamInput, result: &ContinuousBeamResult) -> Self {
         // Convert discrete loads for diagram display
-        let discrete_loads: Vec<DiagramLoad> = input.load_case.loads
+        let discrete_loads: Vec<DiagramLoad> = input
+            .load_case
+            .loads
             .iter()
             .enumerate()
             .map(|(i, load)| DiagramLoad {
@@ -129,10 +133,7 @@ impl BeamDiagram {
             let mut y = top_y;
             while y < bottom_y {
                 let dash_end = (y + dash_length).min(bottom_y);
-                let dash = Path::line(
-                    Point::new(node_x, y),
-                    Point::new(node_x, dash_end),
-                );
+                let dash = Path::line(Point::new(node_x, y), Point::new(node_x, dash_end));
                 frame.stroke(&dash, Stroke::default().with_color(color).with_width(1.0));
                 y += dash_length + gap_length;
             }
@@ -159,8 +160,14 @@ impl BeamDiagram {
                 continue;
             }
 
-            let max_val = span_points.iter().map(|(_, v)| *v).fold(f64::NEG_INFINITY, f64::max);
-            let min_val = span_points.iter().map(|(_, v)| *v).fold(f64::INFINITY, f64::min);
+            let max_val = span_points
+                .iter()
+                .map(|(_, v)| *v)
+                .fold(f64::NEG_INFINITY, f64::max);
+            let min_val = span_points
+                .iter()
+                .map(|(_, v)| *v)
+                .fold(f64::INFINITY, f64::min);
 
             results.push((span_start, span_end, max_val, min_val));
         }
@@ -169,7 +176,13 @@ impl BeamDiagram {
     }
 
     /// Find position of extrema value within a span
-    fn find_extrema_position(&self, diagram: &[(f64, f64)], span_start: f64, span_end: f64, target_value: f64) -> Option<f64> {
+    fn find_extrema_position(
+        &self,
+        diagram: &[(f64, f64)],
+        span_start: f64,
+        span_end: f64,
+        target_value: f64,
+    ) -> Option<f64> {
         diagram
             .iter()
             .filter(|(pos, _)| *pos >= span_start && *pos <= span_end)
@@ -195,11 +208,13 @@ impl BeamDiagram {
         let reaction_color = Color::from_rgb(0.7, 0.2, 0.2);
 
         // Draw beam line
-        let beam = Path::line(
-            Point::new(x, beam_y),
-            Point::new(x + width, beam_y),
+        let beam = Path::line(Point::new(x, beam_y), Point::new(x + width, beam_y));
+        frame.stroke(
+            &beam,
+            Stroke::default()
+                .with_color(color)
+                .with_width(beam_thickness),
         );
-        frame.stroke(&beam, Stroke::default().with_color(color).with_width(beam_thickness));
 
         // Get node positions
         let node_positions = self.data.node_positions_ft();
@@ -207,9 +222,21 @@ impl BeamDiagram {
         // Draw supports at each node
         for (i, &node_ft) in node_positions.iter().enumerate() {
             let node_x = x + (node_ft / total_length) as f32 * width;
-            let support_type = self.data.support_types.get(i).copied().unwrap_or(SupportType::Pinned);
+            let support_type = self
+                .data
+                .support_types
+                .get(i)
+                .copied()
+                .unwrap_or(SupportType::Pinned);
 
-            self.draw_support(frame, node_x, beam_y + beam_thickness / 2.0, support_size, support_type, color);
+            self.draw_support(
+                frame,
+                node_x,
+                beam_y + beam_thickness / 2.0,
+                support_size,
+                support_type,
+                color,
+            );
 
             // Draw reaction arrow and label for supported nodes (not Free)
             if support_type.restrains_vertical() {
@@ -253,7 +280,10 @@ impl BeamDiagram {
                     let label_x = if i == 0 { node_x + 3.0 } else { node_x - 45.0 };
                     let reaction_text = Text {
                         content: label,
-                        position: Point::new(label_x, reaction_start_y + reaction_arrow_length + 2.0),
+                        position: Point::new(
+                            label_x,
+                            reaction_start_y + reaction_arrow_length + 2.0,
+                        ),
                         color: reaction_color,
                         size: iced::Pixels(8.0),
                         ..Text::default()
@@ -314,11 +344,17 @@ impl BeamDiagram {
                     builder.line_to(Point::new(x + size / 2.0, y + size * 0.7));
                     builder.close();
                 });
-                frame.stroke(&triangle, Stroke::default().with_color(color).with_width(2.0));
+                frame.stroke(
+                    &triangle,
+                    Stroke::default().with_color(color).with_width(2.0),
+                );
 
                 // Circle
                 let circle_radius = size * 0.15;
-                let circle = Path::circle(Point::new(x, y + size * 0.7 + circle_radius + 1.0), circle_radius);
+                let circle = Path::circle(
+                    Point::new(x, y + size * 0.7 + circle_radius + 1.0),
+                    circle_radius,
+                );
                 frame.stroke(&circle, Stroke::default().with_color(color).with_width(2.0));
             }
             SupportType::Fixed => {
@@ -356,15 +392,15 @@ impl BeamDiagram {
     /// Get color for a load type
     fn load_type_color(load_type: LoadType) -> Color {
         match load_type {
-            LoadType::Dead => Color::from_rgb(0.4, 0.4, 0.4),        // Dark gray
-            LoadType::Live => Color::from_rgb(0.2, 0.5, 0.8),        // Blue
-            LoadType::LiveRoof => Color::from_rgb(0.3, 0.6, 0.9),    // Light blue
-            LoadType::Snow => Color::from_rgb(0.5, 0.7, 0.9),        // Pale blue
-            LoadType::Rain => Color::from_rgb(0.2, 0.6, 0.7),        // Teal
-            LoadType::Wind => Color::from_rgb(0.6, 0.3, 0.7),        // Purple
-            LoadType::Seismic => Color::from_rgb(0.8, 0.3, 0.3),     // Red
+            LoadType::Dead => Color::from_rgb(0.4, 0.4, 0.4), // Dark gray
+            LoadType::Live => Color::from_rgb(0.2, 0.5, 0.8), // Blue
+            LoadType::LiveRoof => Color::from_rgb(0.3, 0.6, 0.9), // Light blue
+            LoadType::Snow => Color::from_rgb(0.5, 0.7, 0.9), // Pale blue
+            LoadType::Rain => Color::from_rgb(0.2, 0.6, 0.7), // Teal
+            LoadType::Wind => Color::from_rgb(0.6, 0.3, 0.7), // Purple
+            LoadType::Seismic => Color::from_rgb(0.8, 0.3, 0.3), // Red
             LoadType::SoilLateral => Color::from_rgb(0.7, 0.5, 0.2), // Orange-brown
-            LoadType::Fluid => Color::from_rgb(0.3, 0.5, 0.7),       // Steel blue
+            LoadType::Fluid => Color::from_rgb(0.3, 0.5, 0.7), // Steel blue
             LoadType::SelfStraining => Color::from_rgb(0.5, 0.5, 0.3), // Olive
         }
     }
@@ -387,16 +423,16 @@ impl BeamDiagram {
 
         // Calculate available space for loads (from top margin to just above beam)
         // With beam at 70% and section_height ~100px, we have ~70px for loads
-        let top_margin = 8.0_f32;   // Space for top label
-        let arrow_gap = 4.0_f32;    // Gap between arrows and beam
+        let top_margin = 8.0_f32; // Space for top label
+        let arrow_gap = 4.0_f32; // Gap between arrows and beam
         let available_height = beam_y - y - top_margin - arrow_gap;
 
         // Dynamic sizing based on number of loads
         // Target: 5 loads should fit comfortably with ~12px each
-        let min_row_height = 10.0_f32;  // Minimum to keep readable (compressed)
-        let max_row_height = 18.0_f32;  // Maximum comfortable spacing (1-2 loads)
-        let load_row_height = (available_height / num_loads as f32)
-            .clamp(min_row_height, max_row_height);
+        let min_row_height = 10.0_f32; // Minimum to keep readable (compressed)
+        let max_row_height = 18.0_f32; // Maximum comfortable spacing (1-2 loads)
+        let load_row_height =
+            (available_height / num_loads as f32).clamp(min_row_height, max_row_height);
 
         // Arrow length scales with row height (but has min/max bounds)
         let base_arrow_length = (load_row_height * 0.6).clamp(10.0, 18.0);
@@ -460,13 +496,7 @@ impl BeamDiagram {
                 LoadDistribution::Point { position_ft } => {
                     // Draw point load at specific position
                     let point_x = x + (*position_ft as f32 / total_length as f32) * width;
-                    self.draw_point_load(
-                        frame,
-                        point_x,
-                        arrow_top_y,
-                        arrow_bottom_y,
-                        load_color,
-                    );
+                    self.draw_point_load(frame, point_x, arrow_top_y, arrow_bottom_y, load_color);
                     // Label above the arrow
                     let label = format!("L{} ({})", load.index, load.load_type.code());
                     let magnitude_label = format!("{:.0} lb", load.magnitude);
@@ -479,7 +509,9 @@ impl BeamDiagram {
                         load_color,
                     );
                 }
-                LoadDistribution::Trapezoidal { start_ft, end_ft, .. } => {
+                LoadDistribution::Trapezoidal {
+                    start_ft, end_ft, ..
+                } => {
                     // Draw trapezoidal load (simplified as uniform for now)
                     let start_x = x + (*start_ft as f32 / total_length as f32) * width;
                     let end_x = x + (*end_ft as f32 / total_length as f32) * width;
@@ -506,13 +538,7 @@ impl BeamDiagram {
                 LoadDistribution::Moment { position_ft } => {
                     // Draw moment as a curved arrow
                     let moment_x = x + (*position_ft as f32 / total_length as f32) * width;
-                    self.draw_moment_load(
-                        frame,
-                        moment_x,
-                        arrow_top_y,
-                        arrow_bottom_y,
-                        load_color,
-                    );
+                    self.draw_moment_load(frame, moment_x, arrow_top_y, arrow_bottom_y, load_color);
                     let label = format!("L{} ({})", load.index, load.load_type.code());
                     let magnitude_label = format!("{:.0} ft-lb", load.magnitude);
                     self.draw_load_label(
@@ -539,23 +565,20 @@ impl BeamDiagram {
         color: Color,
     ) {
         let region_width = end_x - start_x;
-        let num_arrows = (region_width / 15.0).max(3.0).min(12.0) as i32;
+        let num_arrows = (region_width / 15.0).clamp(3.0, 12.0) as i32;
         let arrow_spacing = region_width / (num_arrows as f32);
 
         // Draw top connecting line
-        let top_line = Path::line(
-            Point::new(start_x, top_y),
-            Point::new(end_x, top_y),
+        let top_line = Path::line(Point::new(start_x, top_y), Point::new(end_x, top_y));
+        frame.stroke(
+            &top_line,
+            Stroke::default().with_color(color).with_width(1.5),
         );
-        frame.stroke(&top_line, Stroke::default().with_color(color).with_width(1.5));
 
         // Draw arrows
         for i in 0..=num_arrows {
             let ax = start_x + i as f32 * arrow_spacing;
-            let arrow = Path::line(
-                Point::new(ax, top_y),
-                Point::new(ax, bottom_y),
-            );
+            let arrow = Path::line(Point::new(ax, top_y), Point::new(ax, bottom_y));
             frame.stroke(&arrow, Stroke::default().with_color(color).with_width(1.0));
 
             // Arrow head
@@ -579,10 +602,7 @@ impl BeamDiagram {
         color: Color,
     ) {
         // Main arrow line (thicker for point load)
-        let arrow = Path::line(
-            Point::new(x_pos, top_y),
-            Point::new(x_pos, bottom_y),
-        );
+        let arrow = Path::line(Point::new(x_pos, top_y), Point::new(x_pos, bottom_y));
         frame.stroke(&arrow, Stroke::default().with_color(color).with_width(2.5));
 
         // Arrow head (larger)
@@ -657,6 +677,8 @@ impl BeamDiagram {
         frame.fill_text(text);
     }
 
+    #[allow(clippy::too_many_arguments)] // canvas drawing API — splitting into a
+                                         // params struct would obscure call sites.
     fn draw_shear_diagram(
         &self,
         frame: &mut Frame,
@@ -668,24 +690,27 @@ impl BeamDiagram {
         axis_color: Color,
     ) {
         // Internal margins to keep content within bounds
-        let top_margin = 18.0;    // Space for title
+        let top_margin = 18.0; // Space for title
         let bottom_margin = 12.0; // Space for labels
         let usable_height = height - top_margin - bottom_margin;
 
         let center_y = y + top_margin + usable_height / 2.0;
-        let plot_height = usable_height * 0.4;  // 40% above and below axis
+        let plot_height = usable_height * 0.4; // 40% above and below axis
 
         // Axis line
-        let axis = Path::line(
-            Point::new(x, center_y),
-            Point::new(x + width, center_y),
+        let axis = Path::line(Point::new(x, center_y), Point::new(x + width, center_y));
+        frame.stroke(
+            &axis,
+            Stroke::default().with_color(axis_color).with_width(1.0),
         );
-        frame.stroke(&axis, Stroke::default().with_color(axis_color).with_width(1.0));
 
         // Draw shear diagram using pre-computed points
         if !self.data.shear_diagram.is_empty() && self.data.max_shear_lb.abs() > 1e-6 {
             // Find min/max shear for scaling
-            let max_v = self.data.shear_diagram.iter()
+            let max_v = self
+                .data
+                .shear_diagram
+                .iter()
                 .map(|(_, v)| v.abs())
                 .fold(0.0f64, |a, b| a.max(b));
 
@@ -706,9 +731,10 @@ impl BeamDiagram {
                         builder.line_to(Point::new(px, py));
                     }
 
-                    let last = self.data.shear_diagram.last().unwrap();
-                    let px = x + (last.0 as f32 / self.data.total_length_ft as f32) * width;
-                    builder.line_to(Point::new(px, center_y));
+                    if let Some(last) = self.data.shear_diagram.last() {
+                        let px = x + (last.0 as f32 / self.data.total_length_ft as f32) * width;
+                        builder.line_to(Point::new(px, center_y));
+                    }
                     builder.close();
                 });
                 frame.fill(&shear_path, Color { a: 0.3, ..color });
@@ -728,15 +754,26 @@ impl BeamDiagram {
                         builder.line_to(Point::new(px, py));
                     }
                 });
-                frame.stroke(&shear_line, Stroke::default().with_color(color).with_width(2.0));
+                frame.stroke(
+                    &shear_line,
+                    Stroke::default().with_color(color).with_width(2.0),
+                );
 
                 // Draw per-span max markers for multi-span beams
                 if self.data.span_lengths_ft.len() > 1 {
                     let span_extrema = self.find_span_extrema(&self.data.shear_diagram);
-                    for (i, (span_start, span_end, max_val, min_val)) in span_extrema.iter().enumerate() {
+                    for (i, (span_start, span_end, max_val, min_val)) in
+                        span_extrema.iter().enumerate()
+                    {
                         // Draw max shear marker
-                        if let Some(max_pos) = self.find_extrema_position(&self.data.shear_diagram, *span_start, *span_end, *max_val) {
-                            let px = x + (max_pos as f32 / self.data.total_length_ft as f32) * width;
+                        if let Some(max_pos) = self.find_extrema_position(
+                            &self.data.shear_diagram,
+                            *span_start,
+                            *span_end,
+                            *max_val,
+                        ) {
+                            let px =
+                                x + (max_pos as f32 / self.data.total_length_ft as f32) * width;
                             let v_norm = max_val / max_v;
                             let py = center_y - (v_norm as f32) * plot_height;
 
@@ -760,8 +797,14 @@ impl BeamDiagram {
 
                         // Draw min shear marker (if different from max)
                         if (min_val - max_val).abs() > max_v * 0.1 {
-                            if let Some(min_pos) = self.find_extrema_position(&self.data.shear_diagram, *span_start, *span_end, *min_val) {
-                                let px = x + (min_pos as f32 / self.data.total_length_ft as f32) * width;
+                            if let Some(min_pos) = self.find_extrema_position(
+                                &self.data.shear_diagram,
+                                *span_start,
+                                *span_end,
+                                *min_val,
+                            ) {
+                                let px =
+                                    x + (min_pos as f32 / self.data.total_length_ft as f32) * width;
                                 let v_norm = min_val / max_v;
                                 let py = center_y - (v_norm as f32) * plot_height;
 
@@ -809,7 +852,7 @@ impl BeamDiagram {
 
         let max_label = Text {
             content: format!("+{:.0} lb", self.data.max_shear_lb),
-            position: Point::new(x + 55.0, y + 3.0),  // Next to title
+            position: Point::new(x + 55.0, y + 3.0), // Next to title
             color,
             size: iced::Pixels(9.0),
             ..Text::default()
@@ -818,7 +861,7 @@ impl BeamDiagram {
 
         let min_label = Text {
             content: format!("-{:.0} lb", self.data.max_shear_lb),
-            position: Point::new(x + width - 55.0, y + 3.0),  // Right side of title row
+            position: Point::new(x + width - 55.0, y + 3.0), // Right side of title row
             color,
             size: iced::Pixels(9.0),
             ..Text::default()
@@ -826,6 +869,7 @@ impl BeamDiagram {
         frame.fill_text(min_label);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_moment_diagram(
         &self,
         frame: &mut Frame,
@@ -837,13 +881,15 @@ impl BeamDiagram {
         axis_color: Color,
     ) {
         // Internal margins to keep content within bounds
-        let top_margin = 18.0;    // Space for title
-        let bottom_margin = 8.0;  // Small bottom margin
+        let top_margin = 18.0; // Space for title
+        let bottom_margin = 8.0; // Small bottom margin
         let usable_height = height - top_margin - bottom_margin;
 
         // Find min and max moments to properly scale and position axis
         let (min_m, max_m) = if !self.data.moment_diagram.is_empty() {
-            self.data.moment_diagram.iter()
+            self.data
+                .moment_diagram
+                .iter()
                 .map(|(_, m)| *m)
                 .fold((0.0f64, 0.0f64), |(min, max), m| (min.min(m), max.max(m)))
         } else {
@@ -855,9 +901,9 @@ impl BeamDiagram {
         let total_range = max_m - min_m;
         let axis_ratio = if total_range.abs() > 1e-6 {
             // Position axis so that max positive is at bottom, max negative at top
-            (-min_m / total_range) as f32  // Fraction of space above axis
+            (-min_m / total_range) as f32 // Fraction of space above axis
         } else {
-            0.15  // Default: axis near top if no range
+            0.15 // Default: axis near top if no range
         };
 
         // Clamp axis position to leave room for content
@@ -872,11 +918,11 @@ impl BeamDiagram {
         };
 
         // Axis line
-        let axis = Path::line(
-            Point::new(x, axis_y),
-            Point::new(x + width, axis_y),
+        let axis = Path::line(Point::new(x, axis_y), Point::new(x + width, axis_y));
+        frame.stroke(
+            &axis,
+            Stroke::default().with_color(axis_color).with_width(1.0),
         );
-        frame.stroke(&axis, Stroke::default().with_color(axis_color).with_width(1.0));
 
         // Draw moment diagram using pre-computed points
         if !self.data.moment_diagram.is_empty() && total_range.abs() > 1e-6 {
@@ -906,16 +952,27 @@ impl BeamDiagram {
                     builder.line_to(Point::new(px, py));
                 }
             });
-            frame.stroke(&outline, Stroke::default().with_color(color).with_width(2.0));
+            frame.stroke(
+                &outline,
+                Stroke::default().with_color(color).with_width(2.0),
+            );
 
             // Draw per-span max moment markers for multi-span beams
             if self.data.span_lengths_ft.len() > 1 {
                 let span_extrema = self.find_span_extrema(&self.data.moment_diagram);
-                for (i, (span_start, span_end, span_max, span_min)) in span_extrema.iter().enumerate() {
+                for (i, (span_start, span_end, span_max, span_min)) in
+                    span_extrema.iter().enumerate()
+                {
                     // Draw max positive moment marker (if significant)
                     if *span_max > total_range * 0.05 {
-                        if let Some(max_pos) = self.find_extrema_position(&self.data.moment_diagram, *span_start, *span_end, *span_max) {
-                            let px = x + (max_pos as f32 / self.data.total_length_ft as f32) * width;
+                        if let Some(max_pos) = self.find_extrema_position(
+                            &self.data.moment_diagram,
+                            *span_start,
+                            *span_end,
+                            *span_max,
+                        ) {
+                            let px =
+                                x + (max_pos as f32 / self.data.total_length_ft as f32) * width;
                             let py = axis_y + (*span_max as f32) * scale;
 
                             let marker = Path::circle(Point::new(px, py), 3.0);
@@ -936,8 +993,14 @@ impl BeamDiagram {
 
                     // Draw max negative moment marker at supports (if significant)
                     if span_min.abs() > total_range * 0.05 {
-                        if let Some(min_pos) = self.find_extrema_position(&self.data.moment_diagram, *span_start, *span_end, *span_min) {
-                            let px = x + (min_pos as f32 / self.data.total_length_ft as f32) * width;
+                        if let Some(min_pos) = self.find_extrema_position(
+                            &self.data.moment_diagram,
+                            *span_start,
+                            *span_end,
+                            *span_min,
+                        ) {
+                            let px =
+                                x + (min_pos as f32 / self.data.total_length_ft as f32) * width;
                             let py = axis_y + (*span_min as f32) * scale;
 
                             let marker = Path::circle(Point::new(px, py), 3.0);
@@ -995,6 +1058,7 @@ impl BeamDiagram {
         frame.fill_text(max_label);
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_deflection_diagram(
         &self,
         frame: &mut Frame,
@@ -1006,19 +1070,19 @@ impl BeamDiagram {
         axis_color: Color,
     ) {
         // Internal margins to keep content within bounds
-        let top_margin = 18.0;    // Space for title/axis
-        let bottom_margin = 8.0;  // Small bottom margin
+        let top_margin = 18.0; // Space for title/axis
+        let bottom_margin = 8.0; // Small bottom margin
         let usable_height = height - top_margin - bottom_margin;
 
         let axis_y = y + top_margin;
-        let plot_height = usable_height * 0.85;  // Deflection goes downward from axis
+        let plot_height = usable_height * 0.85; // Deflection goes downward from axis
 
         // Axis line (represents undeflected beam)
-        let axis = Path::line(
-            Point::new(x, axis_y),
-            Point::new(x + width, axis_y),
+        let axis = Path::line(Point::new(x, axis_y), Point::new(x + width, axis_y));
+        frame.stroke(
+            &axis,
+            Stroke::default().with_color(axis_color).with_width(1.0),
         );
-        frame.stroke(&axis, Stroke::default().with_color(axis_color).with_width(1.0));
 
         // Draw deflection using pre-computed points
         // Use absolute max for scale so positive=down, negative=up renders correctly
@@ -1040,7 +1104,10 @@ impl BeamDiagram {
                     builder.line_to(Point::new(px, py));
                 }
             });
-            frame.stroke(&defl_path, Stroke::default().with_color(color).with_width(2.0));
+            frame.stroke(
+                &defl_path,
+                Stroke::default().with_color(color).with_width(2.0),
+            );
 
             // Fill under curve
             let fill_path = Path::new(|builder| {
@@ -1059,7 +1126,9 @@ impl BeamDiagram {
             // Draw per-span max deflection markers for multi-span beams
             if self.data.span_lengths_ft.len() > 1 {
                 let span_extrema = self.find_span_extrema(&self.data.deflection_diagram);
-                for (i, (span_start, span_end, span_max, span_min)) in span_extrema.iter().enumerate() {
+                for (i, (span_start, span_end, span_max, span_min)) in
+                    span_extrema.iter().enumerate()
+                {
                     // Find the extremum with largest absolute value in this span
                     let (extremum, is_positive) = if span_max.abs() > span_min.abs() {
                         (*span_max, true)
@@ -1069,8 +1138,14 @@ impl BeamDiagram {
 
                     // Only show if significant
                     if extremum.abs() > scale * 0.05 {
-                        if let Some(ext_pos) = self.find_extrema_position(&self.data.deflection_diagram, *span_start, *span_end, extremum) {
-                            let px = x + (ext_pos as f32 / self.data.total_length_ft as f32) * width;
+                        if let Some(ext_pos) = self.find_extrema_position(
+                            &self.data.deflection_diagram,
+                            *span_start,
+                            *span_end,
+                            extremum,
+                        ) {
+                            let px =
+                                x + (ext_pos as f32 / self.data.total_length_ft as f32) * width;
                             let d_ratio = extremum / scale;
                             let py = axis_y + (d_ratio as f32) * plot_height;
 
@@ -1117,7 +1192,7 @@ impl BeamDiagram {
 
         let max_label = Text {
             content: format!("Max: {:.3} in", self.data.max_deflection_in.abs()),
-            position: Point::new(x + 85.0, y + 3.0),  // Next to title
+            position: Point::new(x + 85.0, y + 3.0), // Next to title
             color,
             size: iced::Pixels(9.0),
             ..Text::default()
@@ -1143,8 +1218,8 @@ impl canvas::Program<Message> for BeamDiagram {
         let height = bounds.height;
 
         // Layout: divide into 4 sections with padding between them
-        let section_padding = 12.0;  // Padding between sections to prevent label overlap
-        let total_padding = section_padding * 3.0;  // 3 gaps between 4 sections
+        let section_padding = 12.0; // Padding between sections to prevent label overlap
+        let total_padding = section_padding * 3.0; // 3 gaps between 4 sections
         let section_height = (height - total_padding) / 4.0;
         let margin = 20.0;
         let plot_width = width - 2.0 * margin;
@@ -1163,7 +1238,14 @@ impl canvas::Program<Message> for BeamDiagram {
         let section4_y = (section_height + section_padding) * 3.0;
 
         // Section 1: Beam schematic with loads
-        self.draw_beam_schematic(&mut frame, margin, section1_y, plot_width, section_height, beam_color);
+        self.draw_beam_schematic(
+            &mut frame,
+            margin,
+            section1_y,
+            plot_width,
+            section_height,
+            beam_color,
+        );
 
         // Section 2: Shear diagram
         self.draw_shear_diagram(

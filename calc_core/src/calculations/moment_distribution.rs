@@ -17,7 +17,8 @@
 //! - "Moment Distribution" by Hardy Cross (1930)
 
 use crate::calculations::continuous_beam::{ContinuousBeamInput, SupportType};
-use crate::equations::beam::{fem_point_load, fem_uniform_full, fem_partial_uniform};
+use crate::equations::beam::{fem_partial_uniform, fem_point_load, fem_uniform_full};
+use crate::errors::CalcResult;
 use crate::loads::{LoadDistribution, LoadType};
 
 /// Maximum iterations for moment distribution
@@ -72,18 +73,20 @@ pub struct MomentDistribution {
 
 impl MomentDistribution {
     /// Create a new moment distribution solver from continuous beam input
-    pub fn from_input(input: &ContinuousBeamInput) -> Self {
+    pub fn from_input(input: &ContinuousBeamInput) -> CalcResult<Self> {
         let n_spans = input.span_count();
         let n_joints = input.node_count();
 
-        // Build span data
+        // Build span data. Engineered-wood lookups inside `span.ei()` can fail if
+        // the build script didn't emit data for a referenced variant; propagate
+        // that as a CalcError instead of panicking.
         let spans: Vec<SpanData> = input
             .spans
             .iter()
             .map(|span| {
                 let l_in = span.length_ft * 12.0;
-                let ei = span.ei();
-                SpanData {
+                let ei = span.ei()?;
+                Ok(SpanData {
                     length_ft: span.length_ft,
                     ei,
                     k: ei / l_in, // Basic stiffness = EI/L
@@ -91,9 +94,9 @@ impl MomentDistribution {
                     fem_right: 0.0,
                     moment_left: 0.0,
                     moment_right: 0.0,
-                }
+                })
             })
-            .collect();
+            .collect::<CalcResult<Vec<_>>>()?;
 
         // Build joint data with distribution factors
         let mut joints: Vec<JointData> = Vec::with_capacity(n_joints);
@@ -153,11 +156,11 @@ impl MomentDistribution {
             });
         }
 
-        Self {
+        Ok(Self {
             n_spans,
             spans,
             joints,
-        }
+        })
     }
 
     /// Add loads from the load case to compute fixed-end moments
@@ -205,7 +208,8 @@ impl MomentDistribution {
 
                         if *position_ft >= span_start && *position_ft <= span_end {
                             let local_pos = position_ft - span_start;
-                            let (fem_a, fem_b) = fem_point_load(magnitude, local_pos, span.length_ft);
+                            let (fem_a, fem_b) =
+                                fem_point_load(magnitude, local_pos, span.length_ft);
                             span.fem_left += fem_a;
                             span.fem_right += fem_b;
                             break;
@@ -289,10 +293,10 @@ impl MomentDistribution {
             let left_support = self.joints[0].support_type;
             let right_support = self.joints[1].support_type;
 
-            let left_is_pinned = left_support == SupportType::Pinned
-                || left_support == SupportType::Roller;
-            let right_is_pinned = right_support == SupportType::Pinned
-                || right_support == SupportType::Roller;
+            let left_is_pinned =
+                left_support == SupportType::Pinned || left_support == SupportType::Roller;
+            let right_is_pinned =
+                right_support == SupportType::Pinned || right_support == SupportType::Roller;
             let left_is_fixed = left_support == SupportType::Fixed;
             let right_is_fixed = right_support == SupportType::Fixed;
             let left_is_free = left_support == SupportType::Free;
@@ -551,20 +555,20 @@ pub struct DistributionResult {
 pub fn analyze_moment_distribution(
     input: &ContinuousBeamInput,
     load_factors: &[(LoadType, f64)],
-) -> DistributionResult {
-    let mut solver = MomentDistribution::from_input(input);
+) -> CalcResult<DistributionResult> {
+    let mut solver = MomentDistribution::from_input(input)?;
     solver.add_loads(input, load_factors);
     let converged = solver.solve();
 
     let end_moments = solver.get_end_moments();
     let support_moments = solver.get_support_moments();
 
-    DistributionResult {
+    Ok(DistributionResult {
         span_moments_left: end_moments.iter().map(|(l, _)| *l).collect(),
         span_moments_right: end_moments.iter().map(|(_, r)| *r).collect(),
         support_moments,
         converged,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -588,24 +592,14 @@ mod tests {
     fn test_two_span_equal_uniform() {
         // Two equal spans, 10 ft each, uniform load 100 plf
         // Expected: M at center support = -wL²/8 = -1250 ft-lb
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
 
         let input = ContinuousBeamInput {
             label: "Two-span test".to_string(),
             spans: vec![
-                super::super::continuous_beam::SpanSegment::new(
-                    10.0,
-                    1.5,
-                    9.25,
-                    test_material(),
-                ),
-                super::super::continuous_beam::SpanSegment::new(
-                    10.0,
-                    1.5,
-                    9.25,
-                    test_material(),
-                ),
+                super::super::continuous_beam::SpanSegment::new(10.0, 1.5, 9.25, test_material()),
+                super::super::continuous_beam::SpanSegment::new(10.0, 1.5, 9.25, test_material()),
             ],
             supports: vec![
                 SupportType::Pinned,
@@ -617,7 +611,7 @@ mod tests {
         };
 
         let load_factors = vec![(LoadType::Dead, 1.0)];
-        let result = analyze_moment_distribution(&input, &load_factors);
+        let result = analyze_moment_distribution(&input, &load_factors).unwrap();
 
         assert!(result.converged, "Should converge");
 
@@ -641,8 +635,8 @@ mod tests {
     #[test]
     fn test_single_span_simply_supported() {
         // Single span simply-supported - should have zero end moments
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
 
         let input = ContinuousBeamInput::simple_span(
             "Simple span",
@@ -654,7 +648,7 @@ mod tests {
         );
 
         let load_factors = vec![(LoadType::Dead, 1.0)];
-        let result = analyze_moment_distribution(&input, &load_factors);
+        let result = analyze_moment_distribution(&input, &load_factors).unwrap();
 
         assert!(result.converged, "Should converge");
 
@@ -675,8 +669,8 @@ mod tests {
     fn test_single_span_fixed_fixed() {
         // Single span fixed-fixed
         // FEM = wL²/12 = 100 * 100 / 12 = 833.33 ft-lb at each end
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
 
         let input = ContinuousBeamInput::fixed_fixed(
             "Fixed-fixed",
@@ -688,7 +682,7 @@ mod tests {
         );
 
         let load_factors = vec![(LoadType::Dead, 1.0)];
-        let result = analyze_moment_distribution(&input, &load_factors);
+        let result = analyze_moment_distribution(&input, &load_factors).unwrap();
 
         assert!(result.converged, "Should converge");
 
@@ -712,36 +706,22 @@ mod tests {
     fn test_two_span_fixed_left_exterior() {
         // Bug repro: Two-span beam with Fixed left exterior should produce non-zero results
         // [Fixed, Pinned, Pinned]
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
 
         let input = ContinuousBeamInput {
             label: "Fixed-Pin-Pin".to_string(),
             spans: vec![
-                super::super::continuous_beam::SpanSegment::new(
-                    10.0,
-                    1.5,
-                    9.25,
-                    test_material(),
-                ),
-                super::super::continuous_beam::SpanSegment::new(
-                    10.0,
-                    1.5,
-                    9.25,
-                    test_material(),
-                ),
+                super::super::continuous_beam::SpanSegment::new(10.0, 1.5, 9.25, test_material()),
+                super::super::continuous_beam::SpanSegment::new(10.0, 1.5, 9.25, test_material()),
             ],
-            supports: vec![
-                SupportType::Fixed,
-                SupportType::Pinned,
-                SupportType::Pinned,
-            ],
+            supports: vec![SupportType::Fixed, SupportType::Pinned, SupportType::Pinned],
             load_case,
             ..Default::default()
         };
 
         let load_factors = vec![(LoadType::Dead, 1.0)];
-        let result = analyze_moment_distribution(&input, &load_factors);
+        let result = analyze_moment_distribution(&input, &load_factors).unwrap();
 
         assert!(result.converged, "Should converge");
 
@@ -772,36 +752,22 @@ mod tests {
         // Bug repro: Two-span beam with Free left exterior (cantilever + continuation)
         // [Free, Pinned, Pinned] - This is an unusual configuration but should not produce zeros
         // Note: This requires at least 2 vertical supports for stability
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 100.0));
 
         let input = ContinuousBeamInput {
             label: "Free-Pin-Pin".to_string(),
             spans: vec![
-                super::super::continuous_beam::SpanSegment::new(
-                    10.0,
-                    1.5,
-                    9.25,
-                    test_material(),
-                ),
-                super::super::continuous_beam::SpanSegment::new(
-                    10.0,
-                    1.5,
-                    9.25,
-                    test_material(),
-                ),
+                super::super::continuous_beam::SpanSegment::new(10.0, 1.5, 9.25, test_material()),
+                super::super::continuous_beam::SpanSegment::new(10.0, 1.5, 9.25, test_material()),
             ],
-            supports: vec![
-                SupportType::Free,
-                SupportType::Pinned,
-                SupportType::Pinned,
-            ],
+            supports: vec![SupportType::Free, SupportType::Pinned, SupportType::Pinned],
             load_case,
             ..Default::default()
         };
 
         let load_factors = vec![(LoadType::Dead, 1.0)];
-        let result = analyze_moment_distribution(&input, &load_factors);
+        let result = analyze_moment_distribution(&input, &load_factors).unwrap();
 
         assert!(result.converged, "Should converge");
 

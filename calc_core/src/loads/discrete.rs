@@ -15,7 +15,7 @@ use super::{DesignMethod, LoadCase};
 // ============================================================================
 
 /// How a load is distributed along a member
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum LoadDistribution {
     /// Point load at a specific position
@@ -25,6 +25,7 @@ pub enum LoadDistribution {
     },
 
     /// Uniform load over the full span
+    #[default]
     UniformFull,
 
     /// Uniform load over a partial span
@@ -52,12 +53,6 @@ pub enum LoadDistribution {
         /// Distance from left support (ft)
         position_ft: f64,
     },
-}
-
-impl Default for LoadDistribution {
-    fn default() -> Self {
-        LoadDistribution::UniformFull
-    }
 }
 
 impl LoadDistribution {

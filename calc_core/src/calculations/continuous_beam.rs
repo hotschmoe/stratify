@@ -46,7 +46,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::errors::{CalcError, CalcResult};
-use crate::loads::{EnhancedLoadCase, LoadType, LoadDistribution};
+use crate::loads::{EnhancedLoadCase, LoadDistribution, LoadType};
 use crate::materials::Material;
 use crate::nds_factors::AdjustmentFactors;
 use crate::section_deductions::SectionDeductions;
@@ -211,34 +211,34 @@ impl SpanSegment {
     }
 
     /// Get modulus of elasticity from material (psi)
-    pub fn e_psi(&self) -> f64 {
-        self.material.base_properties().e_psi
+    pub fn e_psi(&self) -> CalcResult<f64> {
+        Ok(self.material.base_properties()?.e_psi)
     }
 
     /// Get minimum modulus for stability (psi)
-    pub fn e_min_psi(&self) -> f64 {
-        self.material.base_properties().e_min_psi
+    pub fn e_min_psi(&self) -> CalcResult<f64> {
+        Ok(self.material.base_properties()?.e_min_psi)
     }
 
     /// Calculate flexural stiffness EI (lb-in²)
-    pub fn ei(&self) -> f64 {
-        self.e_psi() * self.moment_of_inertia_in4()
+    pub fn ei(&self) -> CalcResult<f64> {
+        Ok(self.e_psi()? * self.moment_of_inertia_in4())
     }
 
     /// Calculate stiffness factor K = EI/L (lb-in)
     ///
     /// This is used for moment distribution calculations.
     /// Returns K in consistent units (converts L to inches).
-    pub fn stiffness_k(&self) -> f64 {
+    pub fn stiffness_k(&self) -> CalcResult<f64> {
         let l_in = self.length_ft * 12.0;
-        self.ei() / l_in
+        Ok(self.ei()? / l_in)
     }
 
     /// Calculate modified stiffness for a pin-ended far end (3EI/L)
     ///
     /// Used when the far end of the span is pinned/roller.
-    pub fn stiffness_k_modified(&self) -> f64 {
-        self.stiffness_k() * 0.75 // 3EI/L = 0.75 * 4EI/L
+    pub fn stiffness_k_modified(&self) -> CalcResult<f64> {
+        Ok(self.stiffness_k()? * 0.75) // 3EI/L = 0.75 * 4EI/L
     }
 
     /// Self-weight in plf (assuming 35 pcf wood density)
@@ -510,7 +510,7 @@ impl ContinuousBeamInput {
 
     /// Check if beam has any fixed supports (requires indeterminate analysis)
     pub fn has_fixed_support(&self) -> bool {
-        self.supports.iter().any(|s| *s == SupportType::Fixed)
+        self.supports.contains(&SupportType::Fixed)
     }
 
     /// Check if structure is statically indeterminate
@@ -539,7 +539,7 @@ impl ContinuousBeamInput {
             return Err(CalcError::invalid_input(
                 "supports",
                 self.supports.len().to_string(),
-                &format!(
+                format!(
                     "Expected {} supports for {} spans",
                     expected_supports,
                     self.spans.len()
@@ -550,7 +550,7 @@ impl ContinuousBeamInput {
         // Validate each span
         for (i, span) in self.spans.iter().enumerate() {
             span.validate().map_err(|e| {
-                CalcError::invalid_input(&format!("spans[{}]", i), "invalid", &e.to_string())
+                CalcError::invalid_input(format!("spans[{i}]"), "invalid", e.to_string())
             })?;
         }
 
@@ -571,8 +571,8 @@ impl ContinuousBeamInput {
 
         // Check for unstable cantilever configuration
         // (free end without a fixed support somewhere)
-        let has_free = self.supports.iter().any(|s| *s == SupportType::Free);
-        let has_fixed = self.supports.iter().any(|s| *s == SupportType::Fixed);
+        let has_free = self.supports.contains(&SupportType::Free);
+        let has_fixed = self.supports.contains(&SupportType::Fixed);
 
         if has_free && !has_fixed && vertical_supports < 2 {
             return Err(CalcError::invalid_input(
@@ -865,7 +865,7 @@ pub fn calculate_continuous(
             .collect();
 
         // Run moment distribution analysis
-        let dist_result = analyze_moment_distribution(input, &load_factors);
+        let dist_result = analyze_moment_distribution(input, &load_factors)?;
 
         // Build result from moment distribution output
         let mut result = build_result_from_distribution(
@@ -911,12 +911,11 @@ fn build_result_from_distribution(
     _method: DesignMethod,
     load_factors: &[(LoadType, f64)],
 ) -> CalcResult<ContinuousBeamResult> {
-    use crate::nds_factors::{BeamStability, SizeFactor};
     use crate::equations::beam::{
-        partial_uniform_reactions,
-        point_load_reactions, point_load_deflection,
-        uniform_load_reactions, uniform_load_deflection,
+        partial_uniform_reactions, point_load_deflection, point_load_reactions,
+        uniform_load_deflection, uniform_load_reactions,
     };
+    use crate::nds_factors::{BeamStability, SizeFactor};
 
     // Helper to get load factor for a given load type
     let get_factor = |lt: LoadType| -> f64 {
@@ -988,7 +987,8 @@ fn build_result_from_distribution(
                         let local_start = (*start_ft - span_start).max(0.0);
                         let local_end = (*end_ft - span_start).min(l);
                         if local_end > local_start {
-                            let (r1, r2) = partial_uniform_reactions(magnitude, local_start, local_end, l);
+                            let (r1, r2) =
+                                partial_uniform_reactions(magnitude, local_start, local_end, l);
                             simple_r1 += r1;
                             simple_r2 += r2;
                         }
@@ -1023,11 +1023,11 @@ fn build_result_from_distribution(
         let mut span_max_pos_moment_x = 0.0;
         let mut max_defl = 0.0f64;
 
-        let e = span.e_psi();
+        let e = span.e_psi()?;
         let i_val = span.moment_of_inertia_in4();
         let _s = span.section_modulus_in3();
         let _area = span.area_in2();
-        let ei = span.ei();
+        let ei = span.ei()?;
 
         let num_points = 51;
         for p in 0..num_points {
@@ -1042,7 +1042,10 @@ fn build_result_from_distribution(
             let mut defl = 0.0;
 
             // Add end moment deflection contribution
-            let term_moments = x_in * (l_in - x_in) * (m_left_in * (2.0 * l_in - x_in) + m_right_in * (l_in + x_in)) / (6.0 * ei * l_in);
+            let term_moments = x_in
+                * (l_in - x_in)
+                * (m_left_in * (2.0 * l_in - x_in) + m_right_in * (l_in + x_in))
+                / (6.0 * ei * l_in);
             defl += term_moments;
 
             // Superimpose all loads
@@ -1065,7 +1068,14 @@ fn build_result_from_distribution(
                                 v -= magnitude;
                                 m -= magnitude * (x - local_a);
                             }
-                            defl += point_load_deflection(magnitude, local_a * 12.0, l_in, x_in, e, i_val);
+                            defl += point_load_deflection(
+                                magnitude,
+                                local_a * 12.0,
+                                l_in,
+                                x_in,
+                                e,
+                                i_val,
+                            );
                         }
                     }
                     LoadDistribution::UniformPartial { start_ft, end_ft } => {
@@ -1092,11 +1102,17 @@ fn build_result_from_distribution(
                                 let b_in = l_in - a_in;
                                 if x_in <= a_in {
                                     // x before load point
-                                    defl += seg_load * b_in * x_in * (l_in * l_in - b_in * b_in - x_in * x_in)
+                                    defl += seg_load
+                                        * b_in
+                                        * x_in
+                                        * (l_in * l_in - b_in * b_in - x_in * x_in)
                                         / (6.0 * ei * l_in);
                                 } else {
                                     // x after load point
-                                    defl += seg_load * a_in * (l_in - x_in) * (2.0 * l_in * x_in - x_in * x_in - a_in * a_in)
+                                    defl += seg_load
+                                        * a_in
+                                        * (l_in - x_in)
+                                        * (2.0 * l_in * x_in - x_in * x_in - a_in * a_in)
                                         / (6.0 * ei * l_in);
                                 }
                             }
@@ -1156,7 +1172,7 @@ fn build_result_from_distribution(
         // Calculate stresses and unity checks
         let s = span.section_modulus_in3();
         let area = span.area_in2();
-        let props = span.material.base_properties();
+        let props = span.material.base_properties()?;
         let factors = &input.adjustment_factors;
 
         let design_moment = span_max_pos_moment.max(m_left.abs()).max(m_right.abs());
@@ -1179,7 +1195,7 @@ fn build_result_from_distribution(
             if stability.is_fully_braced() {
                 1.0
             } else {
-                let fb_depth = span.material.fb_for_depth(span.depth_in);
+                let fb_depth = span.material.fb_for_depth(span.depth_in)?;
                 let fb_star = fb_depth
                     * factors.c_d()
                     * factors.c_m_fb()
@@ -1193,7 +1209,7 @@ fn build_result_from_distribution(
             }
         };
 
-        let fb_depth = span.material.fb_for_depth(span.depth_in);
+        let fb_depth = span.material.fb_for_depth(span.depth_in)?;
         let allowable_fb = factors.adjusted_fb(fb_depth, c_f, c_l, span.width_in);
         let bending_unity = actual_fb / allowable_fb;
 
@@ -1211,14 +1227,14 @@ fn build_result_from_distribution(
         if span_governing > governing_unity {
             governing_unity = span_governing;
             governing_span = i;
-            governing_condition = if bending_unity >= shear_unity && bending_unity >= deflection_unity
-            {
-                "Bending".to_string()
-            } else if shear_unity >= deflection_unity {
-                "Shear".to_string()
-            } else {
-                "Deflection".to_string()
-            };
+            governing_condition =
+                if bending_unity >= shear_unity && bending_unity >= deflection_unity {
+                    "Bending".to_string()
+                } else if shear_unity >= deflection_unity {
+                    "Shear".to_string()
+                } else {
+                    "Deflection".to_string()
+                };
         }
 
         span_results.push(SpanResult {
@@ -1321,8 +1337,8 @@ mod tests {
 
     #[test]
     fn test_continuous_beam_simple_span() {
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
 
         let beam =
             ContinuousBeamInput::simple_span("B-1", 12.0, 1.5, 9.25, test_material(), load_case);
@@ -1337,8 +1353,8 @@ mod tests {
 
     #[test]
     fn test_continuous_beam_cantilever() {
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
 
         let beam =
             ContinuousBeamInput::cantilever("CB-1", 8.0, 1.5, 9.25, test_material(), load_case);
@@ -1350,8 +1366,8 @@ mod tests {
 
     #[test]
     fn test_continuous_beam_fixed_fixed() {
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
 
         let beam =
             ContinuousBeamInput::fixed_fixed("FB-1", 10.0, 1.5, 9.25, test_material(), load_case);
@@ -1363,13 +1379,19 @@ mod tests {
 
     #[test]
     fn test_continuous_beam_two_span() {
-        let mut beam = ContinuousBeamInput::default();
-        beam.label = "Two-Span".to_string();
-        beam.spans = vec![
-            SpanSegment::new(12.0, 1.5, 9.25, test_material()),
-            SpanSegment::new(10.0, 1.5, 9.25, test_material()),
-        ];
-        beam.supports = vec![SupportType::Pinned, SupportType::Pinned, SupportType::Roller];
+        let beam = ContinuousBeamInput {
+            label: "Two-Span".to_string(),
+            spans: vec![
+                SpanSegment::new(12.0, 1.5, 9.25, test_material()),
+                SpanSegment::new(10.0, 1.5, 9.25, test_material()),
+            ],
+            supports: vec![
+                SupportType::Pinned,
+                SupportType::Pinned,
+                SupportType::Roller,
+            ],
+            ..Default::default()
+        };
 
         assert_eq!(beam.span_count(), 2);
         assert_eq!(beam.node_count(), 3);
@@ -1436,8 +1458,8 @@ mod tests {
 
     #[test]
     fn test_serialization() {
-        let load_case = EnhancedLoadCase::new("Test")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
+        let load_case =
+            EnhancedLoadCase::new("Test").with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0));
 
         let beam = ContinuousBeamInput::simple_span(
             "Test Beam",
@@ -1481,7 +1503,8 @@ mod tests {
             ..Default::default()
         };
 
-        let result = calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
+        let result =
+            calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
 
         // Check reactions are reasonable
         println!("Governing combo: {}", result.governing_combination);
@@ -1492,7 +1515,10 @@ mod tests {
 
         // The total reactions should equal the applied load
         let total_reaction: f64 = result.reactions.iter().sum();
-        println!("Total reaction: {} (expected ~1000 lb with factors)", total_reaction);
+        println!(
+            "Total reaction: {} (expected ~1000 lb with factors)",
+            total_reaction
+        );
 
         // Check deflection diagram values
         println!("\nSpan 1 deflections (first 5):");
@@ -1501,7 +1527,9 @@ mod tests {
         }
 
         println!("\nSpan 2 deflections (positions >= 10):");
-        let span2_deflections: Vec<_> = result.deflection_diagram.iter()
+        let span2_deflections: Vec<_> = result
+            .deflection_diagram
+            .iter()
             .filter(|(pos, _)| *pos >= 10.0)
             .take(10)
             .collect();
@@ -1510,7 +1538,9 @@ mod tests {
         }
 
         // Check for max absolute deflection
-        let max_abs_defl = result.deflection_diagram.iter()
+        let max_abs_defl = result
+            .deflection_diagram
+            .iter()
             .map(|(_, d)| d.abs())
             .fold(0.0f64, |a, b| a.max(b));
         println!("\nMax absolute deflection: {}", max_abs_defl);
@@ -1518,23 +1548,45 @@ mod tests {
         // Check shear diagram has reasonable values (not NaN, not extreme)
         for (pos, v) in &result.shear_diagram {
             assert!(!v.is_nan(), "Shear diagram has NaN at position {}", pos);
-            assert!(v.abs() < 10000.0, "Shear {} at pos {} seems too large", v, pos);
+            assert!(
+                v.abs() < 10000.0,
+                "Shear {} at pos {} seems too large",
+                v,
+                pos
+            );
         }
 
         // Check moment diagram has reasonable values
         for (pos, m) in &result.moment_diagram {
             assert!(!m.is_nan(), "Moment diagram has NaN at position {}", pos);
-            assert!(m.abs() < 100000.0, "Moment {} at pos {} seems too large", m, pos);
+            assert!(
+                m.abs() < 100000.0,
+                "Moment {} at pos {} seems too large",
+                m,
+                pos
+            );
         }
 
         // Check deflection diagram has reasonable values (not NaN, not extreme)
         for (pos, d) in &result.deflection_diagram {
-            assert!(!d.is_nan(), "Deflection diagram has NaN at position {}", pos);
-            assert!(d.abs() < 100.0, "Deflection {} at pos {} seems too large", d, pos);
+            assert!(
+                !d.is_nan(),
+                "Deflection diagram has NaN at position {}",
+                pos
+            );
+            assert!(
+                d.abs() < 100.0,
+                "Deflection {} at pos {} seems too large",
+                d,
+                pos
+            );
         }
 
         // Maximum absolute deflection should be non-zero
-        assert!(max_abs_defl > 0.0, "Should have non-zero deflection magnitude");
+        assert!(
+            max_abs_defl > 0.0,
+            "Should have non-zero deflection magnitude"
+        );
     }
 
     #[test]
@@ -1544,8 +1596,8 @@ mod tests {
         use crate::loads::DesignMethod;
 
         let load_case = EnhancedLoadCase::new("D + W Point on Span 2")
-            .with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0))  // 50 plf dead
-            .with_load(DiscreteLoad::point(LoadType::Wind, 1000.0, 15.0));  // 1000 lb wind at 15'
+            .with_load(DiscreteLoad::uniform(LoadType::Dead, 50.0)) // 50 plf dead
+            .with_load(DiscreteLoad::point(LoadType::Wind, 1000.0, 15.0)); // 1000 lb wind at 15'
 
         let input = ContinuousBeamInput {
             label: "Two-span D+W test".to_string(),
@@ -1562,7 +1614,8 @@ mod tests {
             ..Default::default()
         };
 
-        let result = calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
+        let result =
+            calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
 
         println!("Governing combo: {}", result.governing_combination);
         println!("Reactions: {:?}", result.reactions);
@@ -1572,7 +1625,9 @@ mod tests {
 
         // Print span 2 deflection sample
         println!("\nSpan 2 deflections (positions >= 10):");
-        let span2_deflections: Vec<_> = result.deflection_diagram.iter()
+        let span2_deflections: Vec<_> = result
+            .deflection_diagram
+            .iter()
             .filter(|(pos, _)| *pos >= 10.0)
             .take(10)
             .collect();
@@ -1585,14 +1640,20 @@ mod tests {
         println!("\nTotal reaction: {}", total_reaction);
 
         // Check for max absolute deflection
-        let max_abs_defl = result.deflection_diagram.iter()
+        let max_abs_defl = result
+            .deflection_diagram
+            .iter()
             .map(|(_, d)| d.abs())
             .fold(0.0f64, |a, b| a.max(b));
         println!("Max absolute deflection: {}", max_abs_defl);
 
         // Deflections should be reasonable
         for (pos, d) in &result.deflection_diagram {
-            assert!(!d.is_nan(), "Deflection diagram has NaN at position {}", pos);
+            assert!(
+                !d.is_nan(),
+                "Deflection diagram has NaN at position {}",
+                pos
+            );
         }
 
         assert!(max_abs_defl > 0.0, "Should have non-zero deflection");
@@ -1606,7 +1667,12 @@ mod tests {
         use crate::loads::DesignMethod;
 
         let load_case = EnhancedLoadCase::new("Partial Dead")
-            .with_load(DiscreteLoad::partial_uniform(LoadType::Dead, 100.0, 3.0, 9.0))
+            .with_load(DiscreteLoad::partial_uniform(
+                LoadType::Dead,
+                100.0,
+                3.0,
+                9.0,
+            ))
             .without_self_weight();
 
         let input = ContinuousBeamInput::simple_span(
@@ -1618,8 +1684,8 @@ mod tests {
             load_case,
         );
 
-        let result = calculate_continuous(&input, DesignMethod::Asd)
-            .expect("Calculation should succeed");
+        let result =
+            calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
 
         // Total load = 100 plf * 6 ft = 600 lb
         // Centroid at 6 ft (symmetric about midspan)
@@ -1627,7 +1693,8 @@ mod tests {
         let total_reaction: f64 = result.reactions.iter().sum();
         assert!(
             (total_reaction - 600.0).abs() < 1.0,
-            "Total reaction {} should be ~600 lb", total_reaction
+            "Total reaction {} should be ~600 lb",
+            total_reaction
         );
 
         // Reactions should be equal for symmetric load
@@ -1648,10 +1715,15 @@ mod tests {
         }
 
         // Max moment should be positive (load applied)
-        assert!(result.max_positive_moment_ftlb > 0.0, "Should have positive moment");
+        assert!(
+            result.max_positive_moment_ftlb > 0.0,
+            "Should have positive moment"
+        );
 
         // Check deflection diagram has non-zero values
-        let max_abs_defl = result.deflection_diagram.iter()
+        let max_abs_defl = result
+            .deflection_diagram
+            .iter()
             .map(|(_, d)| d.abs())
             .fold(0.0f64, f64::max);
         assert!(max_abs_defl > 0.0, "Should have non-zero deflection");
@@ -1667,7 +1739,12 @@ mod tests {
         use crate::loads::DesignMethod;
 
         let load_case = EnhancedLoadCase::new("D partial + L full")
-            .with_load(DiscreteLoad::partial_uniform(LoadType::Dead, 50.0, 0.0, 6.0))
+            .with_load(DiscreteLoad::partial_uniform(
+                LoadType::Dead,
+                50.0,
+                0.0,
+                6.0,
+            ))
             .with_load(DiscreteLoad::uniform(LoadType::Live, 40.0))
             .without_self_weight();
 
@@ -1680,8 +1757,8 @@ mod tests {
             load_case,
         );
 
-        let result = calculate_continuous(&input, DesignMethod::Asd)
-            .expect("Calculation should succeed");
+        let result =
+            calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
 
         // Partial dead: 50 plf * 6 ft = 300 lb
         // Full live: 40 plf * 12 ft = 480 lb
@@ -1689,7 +1766,8 @@ mod tests {
         let total_reaction: f64 = result.reactions.iter().sum();
         assert!(
             (total_reaction - 780.0).abs() < 1.0,
-            "Total reaction {} should be ~780 lb for D+L", total_reaction
+            "Total reaction {} should be ~780 lb for D+L",
+            total_reaction
         );
 
         // Reactions should NOT be equal (asymmetric loading)
@@ -1717,7 +1795,12 @@ mod tests {
         use crate::loads::DesignMethod;
 
         let load_case = EnhancedLoadCase::new("D partial + L point")
-            .with_load(DiscreteLoad::partial_uniform(LoadType::Dead, 60.0, 2.0, 8.0))
+            .with_load(DiscreteLoad::partial_uniform(
+                LoadType::Dead,
+                60.0,
+                2.0,
+                8.0,
+            ))
             .with_load(DiscreteLoad::point(LoadType::Live, 500.0, 6.0))
             .without_self_weight();
 
@@ -1730,8 +1813,8 @@ mod tests {
             load_case,
         );
 
-        let result = calculate_continuous(&input, DesignMethod::Asd)
-            .expect("Calculation should succeed");
+        let result =
+            calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
 
         // Partial dead: 60 plf * 6 ft = 360 lb (centroid at 5 ft)
         // Point live: 500 lb at 6 ft
@@ -1739,21 +1822,29 @@ mod tests {
         let total_reaction: f64 = result.reactions.iter().sum();
         assert!(
             (total_reaction - 860.0).abs() < 1.0,
-            "Total reaction {} should be ~860 lb for D+L", total_reaction
+            "Total reaction {} should be ~860 lb for D+L",
+            total_reaction
         );
 
         // Reactions should sum correctly
         // - Partial load centroid at 5 ft: R1 gets more
         // - Point load at 6 ft (midspan): equal contribution
         // Both reactions should be positive and reasonable
-        assert!(result.reactions[0] > 0.0, "Left reaction should be positive");
-        assert!(result.reactions[1] > 0.0, "Right reaction should be positive");
+        assert!(
+            result.reactions[0] > 0.0,
+            "Left reaction should be positive"
+        );
+        assert!(
+            result.reactions[1] > 0.0,
+            "Right reaction should be positive"
+        );
 
         // Verify max moment occurs near midspan
         let (_, pos) = result.max_positive_moment_location;
         assert!(
             (pos - 6.0).abs() < 2.0,
-            "Max moment at {} should be near midspan (6 ft)", pos
+            "Max moment at {} should be near midspan (6 ft)",
+            pos
         );
     }
 
@@ -1768,9 +1859,24 @@ mod tests {
         use crate::loads::DesignMethod;
 
         let load_case = EnhancedLoadCase::new("Multiple partials")
-            .with_load(DiscreteLoad::partial_uniform(LoadType::Dead, 50.0, 0.0, 4.0))
-            .with_load(DiscreteLoad::partial_uniform(LoadType::Live, 80.0, 4.0, 8.0))
-            .with_load(DiscreteLoad::partial_uniform(LoadType::Snow, 30.0, 8.0, 12.0))
+            .with_load(DiscreteLoad::partial_uniform(
+                LoadType::Dead,
+                50.0,
+                0.0,
+                4.0,
+            ))
+            .with_load(DiscreteLoad::partial_uniform(
+                LoadType::Live,
+                80.0,
+                4.0,
+                8.0,
+            ))
+            .with_load(DiscreteLoad::partial_uniform(
+                LoadType::Snow,
+                30.0,
+                8.0,
+                12.0,
+            ))
             .without_self_weight();
 
         let input = ContinuousBeamInput::simple_span(
@@ -1782,8 +1888,8 @@ mod tests {
             load_case,
         );
 
-        let result = calculate_continuous(&input, DesignMethod::Asd)
-            .expect("Calculation should succeed");
+        let result =
+            calculate_continuous(&input, DesignMethod::Asd).expect("Calculation should succeed");
 
         // Dead: 50 * 4 = 200 lb
         // Live: 80 * 4 = 320 lb
@@ -1796,7 +1902,8 @@ mod tests {
         // Should be D + L = 520 lb (higher than D + S)
         assert!(
             total_reaction > 300.0 && total_reaction < 700.0,
-            "Total reaction {} should be reasonable", total_reaction
+            "Total reaction {} should be reasonable",
+            total_reaction
         );
 
         // All diagrams should be valid
@@ -1805,7 +1912,12 @@ mod tests {
         }
         for (pos, m) in &result.moment_diagram {
             assert!(!m.is_nan(), "Moment NaN at pos {}", pos);
-            assert!(m.abs() < 10000.0, "Moment {} at pos {} seems too large", m, pos);
+            assert!(
+                m.abs() < 10000.0,
+                "Moment {} at pos {} seems too large",
+                m,
+                pos
+            );
         }
         for (pos, d) in &result.deflection_diagram {
             assert!(!d.is_nan(), "Deflection NaN at pos {}", pos);

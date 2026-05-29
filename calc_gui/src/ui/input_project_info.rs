@@ -18,8 +18,12 @@ pub fn view(meta: &ProjectMetadata) -> Column<'_, Message> {
         labeled_input("Job ID:", &meta.job_id, Message::JobIdChanged),
         labeled_input("Client:", &meta.client, Message::ClientChanged),
         Space::new().height(20),
-        text("Select a beam from the left panel to edit,").size(11).color([0.5, 0.5, 0.5]),
-        text("or click '+' to create a new beam.").size(11).color([0.5, 0.5, 0.5]),
+        text("Select a beam from the left panel to edit,")
+            .size(11)
+            .color([0.5, 0.5, 0.5]),
+        text("or click '+' to create a new beam.")
+            .size(11)
+            .color([0.5, 0.5, 0.5]),
     ]
     .spacing(6)
 }

@@ -41,30 +41,15 @@ pub enum CodeReference {
         case: &'static str,
     },
     /// National Design Specification for Wood Construction
-    NDS {
-        year: u16,
-        section: &'static str,
-    },
+    NDS { year: u16, section: &'static str },
     /// AISC 360 - Specification for Structural Steel Buildings
-    AISC360 {
-        year: u16,
-        chapter: &'static str,
-    },
+    AISC360 { year: u16, chapter: &'static str },
     /// ASCE 7 - Minimum Design Loads for Buildings
-    ASCE7 {
-        year: u16,
-        section: &'static str,
-    },
+    ASCE7 { year: u16, section: &'static str },
     /// ACI 318 - Building Code Requirements for Structural Concrete
-    ACI318 {
-        year: u16,
-        section: &'static str,
-    },
+    ACI318 { year: u16, section: &'static str },
     /// Structural Analysis by R.C. Hibbeler
-    Hibbeler {
-        edition: u8,
-        chapter: u8,
-    },
+    Hibbeler { edition: u8, chapter: u8 },
     /// Fundamental mechanics (no specific code reference needed)
     Mechanics,
 }
@@ -73,7 +58,11 @@ impl CodeReference {
     /// Format the reference for display in PDF reports
     pub fn citation(&self) -> String {
         match self {
-            CodeReference::Roarks { edition, table, case } => {
+            CodeReference::Roarks {
+                edition,
+                table,
+                case,
+            } => {
                 format!("Roark's {}ed, {}, Case {}", edition, table, case)
             }
             CodeReference::NDS { year, section } => {
@@ -181,7 +170,11 @@ pub struct Variable {
 
 impl Variable {
     pub const fn new(symbol: &'static str, description: &'static str, units: &'static str) -> Self {
-        Self { symbol, description, units }
+        Self {
+            symbol,
+            description,
+            units,
+        }
     }
 }
 
@@ -349,10 +342,15 @@ impl Equation {
             // Simply-Supported: Point Load
             Equation::PointLoadReactions => EquationMetadata {
                 name: "Point Load Reactions",
-                description: "Support reactions for concentrated load at distance a from left support",
+                description:
+                    "Support reactions for concentrated load at distance a from left support",
                 formula_typst: r#"$R_1 = P(L - a) / L$, $R_2 = P a / L$"#,
                 formula_plain: "R1 = P(L-a)/L, R2 = Pa/L",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "1a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "1a",
+                },
                 variables: vec![
                     Variable::new("P", "Point load magnitude", "lb"),
                     Variable::new("a", "Distance from left support to load", "ft"),
@@ -360,7 +358,10 @@ impl Equation {
                     Variable::new("R_1", "Left reaction", "lb"),
                     Variable::new("R_2", "Right reaction", "lb"),
                 ],
-                assumptions: vec!["Simply-supported (pin-roller)", "Load is perpendicular to beam axis"],
+                assumptions: vec![
+                    "Simply-supported (pin-roller)",
+                    "Load is perpendicular to beam axis",
+                ],
                 category: EquationCategory::Reactions,
                 source_module: "equations/beam.rs",
                 source_function: "point_load_reactions",
@@ -371,7 +372,11 @@ impl Equation {
                 description: "Shear force at position x for concentrated load",
                 formula_typst: r#"$V(x) = R_1$ for $x < a$, $V(x) = R_1 - P$ for $x >= a$"#,
                 formula_plain: "V(x) = R1 for x < a, V(x) = R1 - P for x >= a",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "1a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "1a",
+                },
                 variables: vec![
                     Variable::new("V", "Shear force", "lb"),
                     Variable::new("x", "Position along beam", "ft"),
@@ -387,7 +392,11 @@ impl Equation {
                 description: "Bending moment at position x for concentrated load",
                 formula_typst: r#"$M(x) = R_1 x$ for $x <= a$, $M_("max") = P a (L - a) / L$"#,
                 formula_plain: "M(x) = R1*x for x <= a, M_max = Pa(L-a)/L",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "1a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "1a",
+                },
                 variables: vec![
                     Variable::new("M", "Bending moment", "ft-lb"),
                     Variable::new("x", "Position along beam", "ft"),
@@ -403,7 +412,11 @@ impl Equation {
                 description: "Deflection at position x for concentrated load",
                 formula_typst: r#"$delta(x) = (P b x (L^2 - b^2 - x^2)) / (6 E I L)$ for $x <= a$"#,
                 formula_plain: "delta(x) = Pbx(L^2 - b^2 - x^2) / (6EIL) for x <= a",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "1a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "1a",
+                },
                 variables: vec![
                     Variable::new("delta", "Deflection", "in"),
                     Variable::new("E", "Modulus of elasticity", "psi"),
@@ -422,7 +435,11 @@ impl Equation {
                 description: "Support reactions for uniformly distributed load over full span",
                 formula_typst: r#"$R_1 = R_2 = w L / 2$"#,
                 formula_plain: "R1 = R2 = wL/2",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2a",
+                },
                 variables: vec![
                     Variable::new("w", "Uniform load intensity", "plf"),
                     Variable::new("L", "Span length", "ft"),
@@ -438,7 +455,11 @@ impl Equation {
                 description: "Shear force at position x for uniform load",
                 formula_typst: r#"$V(x) = w (L / 2 - x)$"#,
                 formula_plain: "V(x) = w(L/2 - x)",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2a",
+                },
                 variables: vec![
                     Variable::new("V", "Shear force", "lb"),
                     Variable::new("x", "Position along beam", "ft"),
@@ -454,7 +475,11 @@ impl Equation {
                 description: "Bending moment at position x for uniform load",
                 formula_typst: r#"$M(x) = w x (L - x) / 2$"#,
                 formula_plain: "M(x) = wx(L-x)/2",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2a",
+                },
                 variables: vec![
                     Variable::new("M", "Bending moment", "ft-lb"),
                     Variable::new("x", "Position along beam", "ft"),
@@ -470,7 +495,11 @@ impl Equation {
                 description: "Maximum bending moment at midspan for uniform load",
                 formula_typst: r#"$M_("max") = w L^2 / 8$"#,
                 formula_plain: "M_max = wL^2/8",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2a",
+                },
                 variables: vec![
                     Variable::new("M_(\"max\")", "Maximum moment", "ft-lb"),
                     Variable::new("w", "Uniform load", "plf"),
@@ -487,7 +516,11 @@ impl Equation {
                 description: "Deflection at position x for uniform load",
                 formula_typst: r#"$delta(x) = (w x (L^3 - 2 L x^2 + x^3)) / (24 E I)$"#,
                 formula_plain: "delta(x) = wx(L^3 - 2Lx^2 + x^3) / (24EI)",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2a",
+                },
                 variables: vec![
                     Variable::new("delta", "Deflection", "in"),
                     Variable::new("E", "Modulus of elasticity", "psi"),
@@ -504,7 +537,11 @@ impl Equation {
                 description: "Maximum deflection at midspan for uniform load",
                 formula_typst: r#"$delta_("max") = (5 w L^4) / (384 E I)$"#,
                 formula_plain: "delta_max = 5wL^4 / (384EI)",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2a" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2a",
+                },
                 variables: vec![
                     Variable::new("delta_(\"max\")", "Maximum deflection", "in"),
                     Variable::new("w", "Uniform load", "lb/in"),
@@ -531,7 +568,10 @@ impl Equation {
                     Variable::new("a", "Load start position", "ft"),
                     Variable::new("b", "Load end position", "ft"),
                 ],
-                assumptions: vec!["Simply-supported", "Load treated as resultant at centroid for reactions"],
+                assumptions: vec![
+                    "Simply-supported",
+                    "Load treated as resultant at centroid for reactions",
+                ],
                 category: EquationCategory::Reactions,
                 source_module: "equations/beam.rs",
                 source_function: "partial_uniform_reactions",
@@ -575,7 +615,11 @@ impl Equation {
                 description: "Fixed-end moments for uniform load over entire span",
                 formula_typst: r#"$"FEM"_A = -w L^2 / 12$, $"FEM"_B = +w L^2 / 12$"#,
                 formula_plain: "FEM_A = -wL^2/12, FEM_B = +wL^2/12",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2e" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2e",
+                },
                 variables: vec![
                     Variable::new("FEM_A", "Fixed-end moment at A", "ft-lb"),
                     Variable::new("FEM_B", "Fixed-end moment at B", "ft-lb"),
@@ -591,7 +635,11 @@ impl Equation {
                 description: "Fixed-end moments for point load at distance a",
                 formula_typst: r#"$"FEM"_A = -P a b^2 / L^2$, $"FEM"_B = +P a^2 b / L^2$"#,
                 formula_plain: "FEM_A = -Pab^2/L^2, FEM_B = +Pa^2b/L^2",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "1e" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "1e",
+                },
                 variables: vec![
                     Variable::new("FEM_A", "Fixed-end moment at A", "ft-lb"),
                     Variable::new("FEM_B", "Fixed-end moment at B", "ft-lb"),
@@ -609,9 +657,7 @@ impl Equation {
                 formula_typst: r#"$"FEM" = sum P_i "FEM"_i$ (discrete approximation)"#,
                 formula_plain: "FEM = sum(P_i * FEM_i) (discrete approximation)",
                 reference: CodeReference::Mechanics,
-                variables: vec![
-                    Variable::new("FEM", "Fixed-end moment", "ft-lb"),
-                ],
+                variables: vec![Variable::new("FEM", "Fixed-end moment", "ft-lb")],
                 assumptions: vec!["Numerical integration of point load FEMs", "20 segments"],
                 category: EquationCategory::FixedEndMoments,
                 source_module: "equations/beam.rs",
@@ -624,7 +670,11 @@ impl Equation {
                 description: "End moments for beam fixed at both ends with uniform load",
                 formula_typst: r#"$M_A = M_B = w L^2 / 12$ (hogging)"#,
                 formula_plain: "M_A = M_B = wL^2/12 (hogging)",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2e" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2e",
+                },
                 variables: vec![
                     Variable::new("M_A", "Moment at left support", "ft-lb"),
                     Variable::new("M_B", "Moment at right support", "ft-lb"),
@@ -640,10 +690,16 @@ impl Equation {
                 description: "Maximum positive moment at midspan for fixed-fixed beam",
                 formula_typst: r#"$M_("max") = w L^2 / 24$ (sagging at midspan)"#,
                 formula_plain: "M_max = wL^2/24 (sagging at midspan)",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2e" },
-                variables: vec![
-                    Variable::new("M_(\"max\")", "Maximum positive moment", "ft-lb"),
-                ],
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2e",
+                },
+                variables: vec![Variable::new(
+                    "M_(\"max\")",
+                    "Maximum positive moment",
+                    "ft-lb",
+                )],
                 assumptions: vec!["Both ends fully fixed", "Occurs at midspan"],
                 category: EquationCategory::InternalForces,
                 source_module: "equations/beam.rs",
@@ -655,11 +711,16 @@ impl Equation {
                 description: "Maximum deflection at midspan for fixed-fixed beam with uniform load",
                 formula_typst: r#"$delta_("max") = w L^4 / (384 E I)$"#,
                 formula_plain: "delta_max = wL^4 / (384EI)",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2e" },
-                variables: vec![
-                    Variable::new("delta_(\"max\")", "Maximum deflection", "in"),
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2e",
+                },
+                variables: vec![Variable::new("delta_(\"max\")", "Maximum deflection", "in")],
+                assumptions: vec![
+                    "Both ends fully fixed",
+                    "1/5 of simply-supported deflection",
                 ],
-                assumptions: vec!["Both ends fully fixed", "1/5 of simply-supported deflection"],
                 category: EquationCategory::Deflections,
                 source_module: "equations/beam.rs",
                 source_function: "fixed_fixed_uniform_max_deflection",
@@ -671,7 +732,11 @@ impl Equation {
                 description: "Reaction and fixed-end moment for cantilever with uniform load",
                 formula_typst: r#"$R = w L$, $M = w L^2 / 2$"#,
                 formula_plain: "R = wL, M = wL^2/2",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2b" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2b",
+                },
                 variables: vec![
                     Variable::new("R", "Support reaction", "lb"),
                     Variable::new("M", "Fixed-end moment", "ft-lb"),
@@ -687,10 +752,16 @@ impl Equation {
                 description: "Maximum deflection at free end for cantilever with uniform load",
                 formula_typst: r#"$delta_("max") = w L^4 / (8 E I)$"#,
                 formula_plain: "delta_max = wL^4 / (8EI)",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2b" },
-                variables: vec![
-                    Variable::new("delta_(\"max\")", "Maximum deflection at free end", "in"),
-                ],
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2b",
+                },
+                variables: vec![Variable::new(
+                    "delta_(\"max\")",
+                    "Maximum deflection at free end",
+                    "in",
+                )],
                 assumptions: vec!["Fixed at one end", "Deflection at free end"],
                 category: EquationCategory::Deflections,
                 source_module: "equations/beam.rs",
@@ -702,7 +773,11 @@ impl Equation {
                 description: "Reaction and fixed-end moment for cantilever with point load",
                 formula_typst: r#"$R = P$, $M = P a$"#,
                 formula_plain: "R = P, M = Pa",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "1b" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "1b",
+                },
                 variables: vec![
                     Variable::new("R", "Support reaction", "lb"),
                     Variable::new("M", "Fixed-end moment", "ft-lb"),
@@ -720,7 +795,11 @@ impl Equation {
                 description: "Reactions for beam fixed at left, pinned at right, with uniform load",
                 formula_typst: r#"$R_A = 5 w L / 8$, $R_B = 3 w L / 8$, $M_A = w L^2 / 8$"#,
                 formula_plain: "R_A = 5wL/8, R_B = 3wL/8, M_A = wL^2/8",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2c" },
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2c",
+                },
                 variables: vec![
                     Variable::new("R_A", "Reaction at fixed end", "lb"),
                     Variable::new("R_B", "Reaction at pinned end", "lb"),
@@ -737,10 +816,16 @@ impl Equation {
                 description: "Maximum positive moment for propped cantilever with uniform load",
                 formula_typst: r#"$M_("max") = 9 w L^2 / 128$ at $x = 3L / 8$"#,
                 formula_plain: "M_max = 9wL^2/128 at x = 3L/8",
-                reference: CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "2c" },
-                variables: vec![
-                    Variable::new("M_(\"max\")", "Maximum positive moment", "ft-lb"),
-                ],
+                reference: CodeReference::Roarks {
+                    edition: 8,
+                    table: "Table 8.1",
+                    case: "2c",
+                },
+                variables: vec![Variable::new(
+                    "M_(\"max\")",
+                    "Maximum positive moment",
+                    "ft-lb",
+                )],
                 assumptions: vec!["Fixed-pinned supports", "Occurs at 3L/8 from fixed end"],
                 category: EquationCategory::InternalForces,
                 source_module: "equations/beam.rs",
@@ -822,14 +907,21 @@ impl Equation {
                 description: "Maximum shear stress in rectangular section",
                 formula_typst: r#"$f_v = 3 V / (2 b d)$"#,
                 formula_plain: "f_v = 3V / (2bd)",
-                reference: CodeReference::NDS { year: 2018, section: "3.4.2" },
+                reference: CodeReference::NDS {
+                    year: 2018,
+                    section: "3.4.2",
+                },
                 variables: vec![
                     Variable::new("f_v", "Shear stress", "psi"),
                     Variable::new("V", "Shear force", "lb"),
                     Variable::new("b", "Width", "in"),
                     Variable::new("d", "Depth", "in"),
                 ],
-                assumptions: vec!["Rectangular section", "Parabolic shear distribution", "Max at neutral axis"],
+                assumptions: vec![
+                    "Rectangular section",
+                    "Parabolic shear distribution",
+                    "Max at neutral axis",
+                ],
                 category: EquationCategory::Stresses,
                 source_module: "calculations/beam.rs",
                 source_function: "calculate",
@@ -841,7 +933,10 @@ impl Equation {
                 description: "Reference bending design value multiplied by all adjustment factors",
                 formula_typst: r#"$F'_b = F_b dot C_D dot C_M dot C_t dot C_L dot C_F dot C_("fu") dot C_i dot C_r$"#,
                 formula_plain: "F'_b = F_b * C_D * C_M * C_t * C_L * C_F * C_fu * C_i * C_r",
-                reference: CodeReference::NDS { year: 2018, section: "4.3" },
+                reference: CodeReference::NDS {
+                    year: 2018,
+                    section: "4.3",
+                },
                 variables: vec![
                     Variable::new("F'_b", "Adjusted bending design value", "psi"),
                     Variable::new("F_b", "Reference bending design value", "psi"),
@@ -862,10 +957,14 @@ impl Equation {
 
             Equation::NDSAdjustedShearStrength => EquationMetadata {
                 name: "NDS Adjusted Shear Strength",
-                description: "Reference shear design value multiplied by applicable adjustment factors",
+                description:
+                    "Reference shear design value multiplied by applicable adjustment factors",
                 formula_typst: r#"$F'_v = F_v C_D C_M C_t C_i$"#,
                 formula_plain: "F'_v = F_v * C_D * C_M * C_t * C_i",
-                reference: CodeReference::NDS { year: 2018, section: "4.3" },
+                reference: CodeReference::NDS {
+                    year: 2018,
+                    section: "4.3",
+                },
                 variables: vec![
                     Variable::new("F'_v", "Adjusted shear design value", "psi"),
                     Variable::new("F_v", "Reference shear design value", "psi"),
@@ -881,7 +980,10 @@ impl Equation {
                 description: "Reference modulus adjusted for service conditions",
                 formula_typst: r#"$E' = E C_M C_t C_i$"#,
                 formula_plain: "E' = E * C_M * C_t * C_i",
-                reference: CodeReference::NDS { year: 2018, section: "4.3" },
+                reference: CodeReference::NDS {
+                    year: 2018,
+                    section: "4.3",
+                },
                 variables: vec![
                     Variable::new("E'", "Adjusted modulus of elasticity", "psi"),
                     Variable::new("E", "Reference modulus of elasticity", "psi"),
@@ -897,7 +999,10 @@ impl Equation {
                 description: "Demand/capacity ratio for bending stress check",
                 formula_typst: r#"$f_b / F'_b <= 1.0$"#,
                 formula_plain: "f_b / F'_b <= 1.0",
-                reference: CodeReference::NDS { year: 2018, section: "3.3" },
+                reference: CodeReference::NDS {
+                    year: 2018,
+                    section: "3.3",
+                },
                 variables: vec![
                     Variable::new("f_b", "Actual bending stress", "psi"),
                     Variable::new("F'_b", "Adjusted allowable bending stress", "psi"),
@@ -913,7 +1018,10 @@ impl Equation {
                 description: "Demand/capacity ratio for shear stress check",
                 formula_typst: r#"$f_v / F'_v <= 1.0$"#,
                 formula_plain: "f_v / F'_v <= 1.0",
-                reference: CodeReference::NDS { year: 2018, section: "3.4" },
+                reference: CodeReference::NDS {
+                    year: 2018,
+                    section: "3.4",
+                },
                 variables: vec![
                     Variable::new("f_v", "Actual shear stress", "psi"),
                     Variable::new("F'_v", "Adjusted allowable shear stress", "psi"),
@@ -929,7 +1037,10 @@ impl Equation {
                 description: "Serviceability check for maximum deflection",
                 formula_typst: r#"$delta <= L \/ n$ where $n$ = 240, 360, etc."#,
                 formula_plain: "delta <= L/n where n = 240, 360, etc.",
-                reference: CodeReference::ASCE7 { year: 2022, section: "Table 1604.3" },
+                reference: CodeReference::ASCE7 {
+                    year: 2022,
+                    section: "Table 1604.3",
+                },
                 variables: vec![
                     Variable::new("delta", "Actual deflection", "in"),
                     Variable::new("L", "Span length", "in"),
@@ -1048,7 +1159,11 @@ impl EquationUsage {
     }
 
     /// Create usage record with member label
-    pub fn for_member(equation: Equation, context: impl Into<String>, label: impl Into<String>) -> Self {
+    pub fn for_member(
+        equation: Equation,
+        context: impl Into<String>,
+        label: impl Into<String>,
+    ) -> Self {
         Self {
             equation,
             context: context.into(),
@@ -1076,8 +1191,14 @@ impl EquationTracker {
     }
 
     /// Record equation usage for a specific member
-    pub fn record_for_member(&mut self, equation: Equation, context: impl Into<String>, label: impl Into<String>) {
-        self.usages.push(EquationUsage::for_member(equation, context, label));
+    pub fn record_for_member(
+        &mut self,
+        equation: Equation,
+        context: impl Into<String>,
+        label: impl Into<String>,
+    ) {
+        self.usages
+            .push(EquationUsage::for_member(equation, context, label));
     }
 
     /// Get all recorded usages
@@ -1097,7 +1218,8 @@ impl EquationTracker {
 
     /// Group usages by equation for appendix generation
     pub fn by_equation(&self) -> std::collections::HashMap<Equation, Vec<&EquationUsage>> {
-        let mut map: std::collections::HashMap<Equation, Vec<&EquationUsage>> = std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<Equation, Vec<&EquationUsage>> =
+            std::collections::HashMap::new();
         for usage in &self.usages {
             map.entry(usage.equation).or_default().push(usage);
         }
@@ -1107,7 +1229,8 @@ impl EquationTracker {
     /// Group unique equations by category for appendix
     pub fn by_category(&self) -> Vec<(EquationCategory, Vec<Equation>)> {
         let unique = self.unique_equations();
-        let mut by_cat: std::collections::HashMap<EquationCategory, Vec<Equation>> = std::collections::HashMap::new();
+        let mut by_cat: std::collections::HashMap<EquationCategory, Vec<Equation>> =
+            std::collections::HashMap::new();
 
         for eq in unique {
             let cat = eq.metadata().category;
@@ -1151,7 +1274,8 @@ impl EquationTracker {
         let mut output = String::new();
 
         // Appendix header
-        output.push_str(r##"
+        output.push_str(
+            r##"
 #pagebreak()
 
 #align(center)[
@@ -1168,7 +1292,8 @@ impl EquationTracker {
 ]
 
 #v(16pt)
-"##);
+"##,
+        );
 
         // Get equations grouped by category
         let by_category = self.by_category();
@@ -1184,36 +1309,21 @@ impl EquationTracker {
         // Process each category
         for (category, equations) in by_category {
             // Category header
-            output.push_str(&format!(
-                "\n== {}\n\n",
-                category.display_name()
-            ));
+            output.push_str(&format!("\n== {}\n\n", category.display_name()));
 
             // Each equation in this category
             for equation in equations {
                 let meta = equation.metadata();
 
                 // Equation name and description
-                output.push_str(&format!(
-                    "=== {}\n\n",
-                    meta.name
-                ));
-                output.push_str(&format!(
-                    "#text(size: 10pt)[{}]\n\n",
-                    meta.description
-                ));
+                output.push_str(&format!("=== {}\n\n", meta.name));
+                output.push_str(&format!("#text(size: 10pt)[{}]\n\n", meta.description));
 
                 // Formula (using Typst math notation)
-                output.push_str(&format!(
-                    "*Formula:* {}\n\n",
-                    meta.formula_typst
-                ));
+                output.push_str(&format!("*Formula:* {}\n\n", meta.formula_typst));
 
                 // Reference
-                output.push_str(&format!(
-                    "*Reference:* {}\n\n",
-                    meta.reference.citation()
-                ));
+                output.push_str(&format!("*Reference:* {}\n\n", meta.reference.citation()));
 
                 // Variables table (if any)
                 if !meta.variables.is_empty() {
@@ -1249,10 +1359,7 @@ impl EquationTracker {
                         unique.sort();
                         unique.dedup();
 
-                        output.push_str(&format!(
-                            "*Applied to:* {}\n\n",
-                            unique.join(", ")
-                        ));
+                        output.push_str(&format!("*Applied to:* {}\n\n", unique.join(", ")));
                     }
                 }
 
@@ -1262,7 +1369,7 @@ impl EquationTracker {
                     for assumption in &meta.assumptions {
                         output.push_str(&format!("- {}\n", assumption));
                     }
-                    output.push_str("\n");
+                    output.push('\n');
                 }
 
                 output.push_str("#v(8pt)\n");
@@ -1358,7 +1465,8 @@ pub fn generate_equations_markdown() -> String {
     let mut output = String::with_capacity(32_000);
 
     // Header
-    output.push_str(r#"# Stratify Equations Reference
+    output.push_str(
+        r#"# Stratify Equations Reference
 
 > **Auto-generated from source code. Do not edit manually.**
 >
@@ -1380,7 +1488,8 @@ Engineers can use this as a single reference to audit the underlying mathematics
 
 ---
 
-"#);
+"#,
+    );
 
     // Get all categories in sorted order
     let categories = Equation::all_categories();
@@ -1417,7 +1526,7 @@ Engineers can use this as a single reference to audit the underlying mathematics
                         var.symbol, var.description, var.units
                     ));
                 }
-                output.push_str("\n");
+                output.push('\n');
             }
 
             // Reference
@@ -1435,7 +1544,7 @@ Engineers can use this as a single reference to audit the underlying mathematics
                 for assumption in &meta.assumptions {
                     output.push_str(&format!("- {}\n", assumption));
                 }
-                output.push_str("\n");
+                output.push('\n');
             }
 
             output.push_str("---\n\n");
@@ -1449,7 +1558,8 @@ Engineers can use this as a single reference to audit the underlying mathematics
         categories.len()
     ));
 
-    output.push_str(r#"## How to Audit
+    output.push_str(
+        r#"## How to Audit
 
 1. Find the equation you want to verify in the sections above
 2. Check the **Reference** for the original source (Roark's, NDS, ASCE 7, etc.)
@@ -1457,7 +1567,8 @@ Engineers can use this as a single reference to audit the underlying mathematics
 4. Run `cargo test` to verify equations against known values
 
 For questions or issues, see the main README.md.
-"#);
+"#,
+    );
 
     output
 }
@@ -1478,24 +1589,45 @@ mod tests {
         for eq in ALL_EQUATIONS {
             let meta = eq.metadata();
             assert!(!meta.name.is_empty(), "Equation {:?} has no name", eq);
-            assert!(!meta.formula_typst.is_empty(), "Equation {:?} has no formula", eq);
-            assert!(!meta.variables.is_empty(), "Equation {:?} has no variables", eq);
+            assert!(
+                !meta.formula_typst.is_empty(),
+                "Equation {:?} has no formula",
+                eq
+            );
+            assert!(
+                !meta.variables.is_empty(),
+                "Equation {:?} has no variables",
+                eq
+            );
         }
 
         // Spot-check key formulas for correctness
         let uniform_max = Equation::UniformLoadMaxMoment.metadata();
-        assert!(uniform_max.formula_plain.contains("wL^2/8"), "Uniform load max moment formula wrong");
+        assert!(
+            uniform_max.formula_plain.contains("wL^2/8"),
+            "Uniform load max moment formula wrong"
+        );
 
         let bending = Equation::BendingStress.metadata();
-        assert!(bending.formula_plain.contains("M / S"), "Bending stress formula wrong");
+        assert!(
+            bending.formula_plain.contains("M / S"),
+            "Bending stress formula wrong"
+        );
     }
 
     #[test]
     fn test_code_reference_citation() {
-        let roark = CodeReference::Roarks { edition: 8, table: "Table 8.1", case: "1a" };
+        let roark = CodeReference::Roarks {
+            edition: 8,
+            table: "Table 8.1",
+            case: "1a",
+        };
         assert_eq!(roark.citation(), "Roark's 8ed, Table 8.1, Case 1a");
 
-        let nds = CodeReference::NDS { year: 2018, section: "4.3" };
+        let nds = CodeReference::NDS {
+            year: 2018,
+            section: "4.3",
+        };
         assert_eq!(nds.citation(), "NDS 2018 Section 4.3");
     }
 
@@ -1545,12 +1677,21 @@ mod tests {
         let typst = tracker.generate_appendix_typst();
 
         // Should contain appendix header
-        assert!(typst.contains("Appendix: List of Equations"), "Missing appendix header");
+        assert!(
+            typst.contains("Appendix: List of Equations"),
+            "Missing appendix header"
+        );
 
         // Should contain equation names
-        assert!(typst.contains("Maximum Moment for Uniform Load"), "Missing uniform load moment");
+        assert!(
+            typst.contains("Maximum Moment for Uniform Load"),
+            "Missing uniform load moment"
+        );
         assert!(typst.contains("Bending Stress"), "Missing bending stress");
-        assert!(typst.contains("Rectangular Section Modulus"), "Missing section modulus");
+        assert!(
+            typst.contains("Rectangular Section Modulus"),
+            "Missing section modulus"
+        );
 
         // Should contain references
         assert!(typst.contains("Roark's"), "Missing Roark's reference");
@@ -1559,8 +1700,14 @@ mod tests {
         assert!(typst.contains("B-1"), "Missing member label");
 
         // Should be organized by category
-        assert!(typst.contains("Section Properties"), "Missing section properties category");
-        assert!(typst.contains("Internal Forces"), "Missing internal forces category");
+        assert!(
+            typst.contains("Section Properties"),
+            "Missing section properties category"
+        );
+        assert!(
+            typst.contains("Internal Forces"),
+            "Missing internal forces category"
+        );
         assert!(typst.contains("Stresses"), "Missing stresses category");
     }
 
@@ -1589,10 +1736,7 @@ mod tests {
 
     #[test]
     fn test_static_equations_appendix() {
-        let equations = vec![
-            Equation::UniformLoadMaxMoment,
-            Equation::BendingStress,
-        ];
+        let equations = vec![Equation::UniformLoadMaxMoment, Equation::BendingStress];
 
         let typst = generate_static_equations_appendix_typst(&equations);
 
@@ -1605,27 +1749,60 @@ mod tests {
         let markdown = super::generate_equations_markdown();
 
         // Should contain header
-        assert!(markdown.contains("# Stratify Equations Reference"), "Missing title");
-        assert!(markdown.contains("Auto-generated from source code"), "Missing auto-gen notice");
+        assert!(
+            markdown.contains("# Stratify Equations Reference"),
+            "Missing title"
+        );
+        assert!(
+            markdown.contains("Auto-generated from source code"),
+            "Missing auto-gen notice"
+        );
 
         // Should contain sign conventions
-        assert!(markdown.contains("## Sign Conventions"), "Missing sign conventions");
+        assert!(
+            markdown.contains("## Sign Conventions"),
+            "Missing sign conventions"
+        );
 
         // Should contain all categories
-        assert!(markdown.contains("## Section Properties"), "Missing Section Properties");
+        assert!(
+            markdown.contains("## Section Properties"),
+            "Missing Section Properties"
+        );
         assert!(markdown.contains("## Reactions"), "Missing Reactions");
-        assert!(markdown.contains("## Internal Forces"), "Missing Internal Forces");
+        assert!(
+            markdown.contains("## Internal Forces"),
+            "Missing Internal Forces"
+        );
         assert!(markdown.contains("## Stresses"), "Missing Stresses");
         assert!(markdown.contains("## Deflections"), "Missing Deflections");
-        assert!(markdown.contains("## Fixed-End Moments"), "Missing Fixed-End Moments");
-        assert!(markdown.contains("## Adjustment Factors"), "Missing Adjustment Factors");
-        assert!(markdown.contains("## Design Checks"), "Missing Design Checks");
+        assert!(
+            markdown.contains("## Fixed-End Moments"),
+            "Missing Fixed-End Moments"
+        );
+        assert!(
+            markdown.contains("## Adjustment Factors"),
+            "Missing Adjustment Factors"
+        );
+        assert!(
+            markdown.contains("## Design Checks"),
+            "Missing Design Checks"
+        );
 
         // Should contain equations with formulas
-        assert!(markdown.contains("### Rectangular Area"), "Missing Rectangular Area");
+        assert!(
+            markdown.contains("### Rectangular Area"),
+            "Missing Rectangular Area"
+        );
         assert!(markdown.contains("`A = b * d`"), "Missing area formula");
-        assert!(markdown.contains("### Maximum Moment for Uniform Load"), "Missing max moment");
-        assert!(markdown.contains("`M_max = wL^2/8`"), "Missing moment formula");
+        assert!(
+            markdown.contains("### Maximum Moment for Uniform Load"),
+            "Missing max moment"
+        );
+        assert!(
+            markdown.contains("`M_max = wL^2/8`"),
+            "Missing moment formula"
+        );
 
         // Should contain references
         assert!(markdown.contains("Roark's"), "Missing Roark's reference");
@@ -1633,15 +1810,27 @@ mod tests {
 
         // Should contain source links
         assert!(markdown.contains("**Source:**"), "Missing source links");
-        assert!(markdown.contains("equations/beam.rs"), "Missing beam.rs source");
+        assert!(
+            markdown.contains("equations/beam.rs"),
+            "Missing beam.rs source"
+        );
 
         // Should contain statistics
         assert!(markdown.contains("## Statistics"), "Missing statistics");
-        assert!(markdown.contains("**Total Equations:** 35"), "Wrong equation count");
-        assert!(markdown.contains("**Categories:** 8"), "Wrong category count");
+        assert!(
+            markdown.contains("**Total Equations:** 35"),
+            "Wrong equation count"
+        );
+        assert!(
+            markdown.contains("**Categories:** 8"),
+            "Wrong category count"
+        );
 
         // Should contain audit instructions
-        assert!(markdown.contains("## How to Audit"), "Missing audit section");
+        assert!(
+            markdown.contains("## How to Audit"),
+            "Missing audit section"
+        );
     }
 
     #[test]
@@ -1649,9 +1838,21 @@ mod tests {
         // Verify all equations have source info
         for eq in ALL_EQUATIONS {
             let meta = eq.metadata();
-            assert!(!meta.source_module.is_empty(), "Equation {:?} missing source_module", eq);
-            assert!(!meta.source_function.is_empty(), "Equation {:?} missing source_function", eq);
-            assert!(!meta.formula_plain.is_empty(), "Equation {:?} missing formula_plain", eq);
+            assert!(
+                !meta.source_module.is_empty(),
+                "Equation {:?} missing source_module",
+                eq
+            );
+            assert!(
+                !meta.source_function.is_empty(),
+                "Equation {:?} missing source_function",
+                eq
+            );
+            assert!(
+                !meta.formula_plain.is_empty(),
+                "Equation {:?} missing formula_plain",
+                eq
+            );
         }
     }
 }

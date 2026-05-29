@@ -27,18 +27,17 @@ pub fn view_divider(divider_type: DividerType, is_dragging: bool) -> Element<'st
         .height(Length::Fill);
 
     // Style the container based on dragging state
-    let styled_content = container(divider_content)
-        .style(move |theme: &iced::Theme| {
-            let palette = theme.extended_palette();
-            container::Style {
-                background: if is_dragging {
-                    Some(palette.primary.weak.color.into())
-                } else {
-                    None
-                },
-                ..Default::default()
-            }
-        });
+    let styled_content = container(divider_content).style(move |theme: &iced::Theme| {
+        let palette = theme.extended_palette();
+        container::Style {
+            background: if is_dragging {
+                Some(palette.primary.weak.color.into())
+            } else {
+                None
+            },
+            ..Default::default()
+        }
+    });
 
     // Use mouse_area to capture press events immediately (not on click completion)
     // This is crucial for drag behavior - we need to know when the button goes DOWN

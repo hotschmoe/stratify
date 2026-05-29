@@ -91,7 +91,11 @@ pub enum CalcError {
 
 impl CalcError {
     /// Create an InvalidInput error
-    pub fn invalid_input(field: impl Into<String>, value: impl Into<String>, reason: impl Into<String>) -> Self {
+    pub fn invalid_input(
+        field: impl Into<String>,
+        value: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
         CalcError::InvalidInput {
             field: field.into(),
             value: value.into(),
@@ -114,7 +118,10 @@ impl CalcError {
     }
 
     /// Create a CalculationFailed error
-    pub fn calculation_failed(calculation_type: impl Into<String>, reason: impl Into<String>) -> Self {
+    pub fn calculation_failed(
+        calculation_type: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
         CalcError::CalculationFailed {
             calculation_type: calculation_type.into(),
             reason: reason.into(),
@@ -122,7 +129,11 @@ impl CalcError {
     }
 
     /// Create a FileError
-    pub fn file_error(operation: impl Into<String>, path: impl Into<String>, reason: impl Into<String>) -> Self {
+    pub fn file_error(
+        operation: impl Into<String>,
+        path: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
         CalcError::FileError {
             operation: operation.into(),
             path: path.into(),
@@ -131,7 +142,11 @@ impl CalcError {
     }
 
     /// Create a FileLocked error
-    pub fn file_locked(path: impl Into<String>, locked_by: impl Into<String>, locked_at: impl Into<String>) -> Self {
+    pub fn file_locked(
+        path: impl Into<String>,
+        locked_by: impl Into<String>,
+        locked_at: impl Into<String>,
+    ) -> Self {
         CalcError::FileLocked {
             path: path.into(),
             locked_by: locked_by.into(),
@@ -174,7 +189,13 @@ mod tests {
 
     #[test]
     fn test_error_codes() {
-        assert_eq!(CalcError::missing_field("test").error_code(), "MISSING_FIELD");
-        assert_eq!(CalcError::material_not_found("steel").error_code(), "MATERIAL_NOT_FOUND");
+        assert_eq!(
+            CalcError::missing_field("test").error_code(),
+            "MISSING_FIELD"
+        );
+        assert_eq!(
+            CalcError::material_not_found("steel").error_code(),
+            "MATERIAL_NOT_FOUND"
+        );
     }
 }

@@ -341,13 +341,7 @@ impl SingleLoad {
     }
 
     /// Calculate partial uniform load deflection using numerical integration
-    fn deflection_partial_uniform(
-        &self,
-        x_ft: f64,
-        span_ft: f64,
-        e_psi: f64,
-        i_in4: f64,
-    ) -> f64 {
+    fn deflection_partial_uniform(&self, x_ft: f64, span_ft: f64, e_psi: f64, i_in4: f64) -> f64 {
         if let SingleLoad::UniformPartial {
             magnitude_plf,
             start_ft,
@@ -498,8 +492,7 @@ impl BeamAnalysis {
         let epsilon = self.span_ft * 0.001; // Small offset for discontinuities
         for load in &self.loads {
             match load {
-                SingleLoad::Point { position_ft, .. }
-                | SingleLoad::Moment { position_ft, .. } => {
+                SingleLoad::Point { position_ft, .. } | SingleLoad::Moment { position_ft, .. } => {
                     let pos = *position_ft;
                     if pos > epsilon && pos < self.span_ft - epsilon {
                         positions.push(pos - epsilon);
@@ -525,8 +518,9 @@ impl BeamAnalysis {
             }
         }
 
-        // Sort and deduplicate
-        positions.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // Sort and deduplicate. `total_cmp` gives a total order over f64 (NaN-safe);
+        // upstream filtering keeps NaN out of `positions`, so order over reals is unchanged.
+        positions.sort_by(|a, b| a.total_cmp(b));
         positions.dedup_by(|a, b| (*a - *b).abs() < epsilon / 2.0);
 
         positions

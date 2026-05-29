@@ -304,12 +304,7 @@ mod tests {
         // Verify relationship: S = I / (d/2)
         let i = rectangular_moment_of_inertia(1.5, 9.25);
         let s_from_i = i / (9.25 / 2.0);
-        assert!(
-            approx_eq(s, s_from_i),
-            "S = {}, I/(d/2) = {}",
-            s,
-            s_from_i
-        );
+        assert!(approx_eq(s, s_from_i), "S = {}, I/(d/2) = {}", s, s_from_i);
     }
 
     #[test]
@@ -317,12 +312,7 @@ mod tests {
         // r = d / sqrt(12)
         let r = rectangular_radius_of_gyration(9.25);
         let expected = 9.25 / (12.0_f64).sqrt(); // 2.67
-        assert!(
-            approx_eq(r, expected),
-            "r = {} (expected {})",
-            r,
-            expected
-        );
+        assert!(approx_eq(r, expected), "r = {} (expected {})", r, expected);
     }
 
     #[test]
@@ -371,11 +361,6 @@ mod tests {
         let r = rectangular_radius_of_gyration(d);
 
         let i_from_ar = a * r * r;
-        assert!(
-            approx_eq(i, i_from_ar),
-            "I = {}, A*r² = {}",
-            i,
-            i_from_ar
-        );
+        assert!(approx_eq(i, i_from_ar), "I = {}, A*r² = {}", i, i_from_ar);
     }
 }

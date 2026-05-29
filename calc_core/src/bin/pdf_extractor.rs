@@ -171,7 +171,10 @@ fn extract_pdf_text(path: &Path) -> Result<String, String> {
         Ok(text) => Ok(text),
         Err(e) => {
             let error_msg = format!("{}", e);
-            if error_msg.contains("decrypt") || error_msg.contains("password") || error_msg.contains("encryption") {
+            if error_msg.contains("decrypt")
+                || error_msg.contains("password")
+                || error_msg.contains("encryption")
+            {
                 Err(format!(
                     "PDF appears to be encrypted or password-protected.\n\n\
                      The NDS Supplement PDFs are often protected by AWC.\n\n\
@@ -181,7 +184,8 @@ fn extract_pdf_text(path: &Path) -> Result<String, String> {
                      3. Use official AWC DCA documents (some are public)\n\
                      4. Manually transcribe from a printed copy\n\n\
                      See bead Stratify-q38 for AWC licensing contact task.\n\n\
-                     Original error: {}", e
+                     Original error: {}",
+                    e
                 ))
             } else {
                 Err(format!("Failed to extract text: {}", e))
@@ -196,12 +200,35 @@ fn find_potential_tables(text: &str) -> Vec<(usize, String)> {
 
     // Look for patterns that suggest table headers
     let table_indicators = [
-        "Species", "Grade", "Fb", "Ft", "Fv", "Fc", "E", "Emin",
-        "Table 4A", "Table 4B", "Table 5A", "Table 5B",
-        "Douglas", "Southern", "Hem-Fir", "Spruce",
-        "Select Structural", "No. 1", "No. 2", "No. 3",
-        "LVL", "PSL", "LSL", "Glulam",
-        "Modulus", "Bending", "Tension", "Shear", "Compression",
+        "Species",
+        "Grade",
+        "Fb",
+        "Ft",
+        "Fv",
+        "Fc",
+        "E",
+        "Emin",
+        "Table 4A",
+        "Table 4B",
+        "Table 5A",
+        "Table 5B",
+        "Douglas",
+        "Southern",
+        "Hem-Fir",
+        "Spruce",
+        "Select Structural",
+        "No. 1",
+        "No. 2",
+        "No. 3",
+        "LVL",
+        "PSL",
+        "LSL",
+        "Glulam",
+        "Modulus",
+        "Bending",
+        "Tension",
+        "Shear",
+        "Compression",
     ];
 
     for (line_num, line) in lines.iter().enumerate() {
@@ -224,9 +251,9 @@ fn find_potential_tables(text: &str) -> Vec<(usize, String)> {
                     .join("\n");
 
                 // Avoid duplicates (same region)
-                let already_found = tables.iter().any(|(ln, _): &(usize, String)| {
-                    (*ln as isize - line_num as isize).abs() < 10
-                });
+                let already_found = tables
+                    .iter()
+                    .any(|(ln, _): &(usize, String)| (*ln as isize - line_num as isize).abs() < 10);
 
                 if !already_found {
                     tables.push((line_num + 1, preview));

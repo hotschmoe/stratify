@@ -598,8 +598,9 @@ impl BeamStability {
 
         let c_l = term1 - term2;
 
-        // C_L cannot exceed 1.0
-        c_l.min(1.0).max(0.0)
+        // C_L cannot exceed 1.0 (`fb_star` ensures `ratio` and `term*` are finite,
+        // so neither bound is NaN — clamp is safe here).
+        c_l.clamp(0.0, 1.0)
     }
 
     /// Check if compression edge is fully braced
@@ -762,13 +763,7 @@ impl AdjustmentFactors {
     ///
     /// Note: C_L requires E'min and Fb* to calculate. If compression edge
     /// is braced, C_L = 1.0. Otherwise, pass calculated C_L value.
-    pub fn adjusted_fb(
-        &self,
-        fb_reference: f64,
-        c_f: f64,
-        c_l: f64,
-        width_in: f64,
-    ) -> f64 {
+    pub fn adjusted_fb(&self, fb_reference: f64, c_f: f64, c_l: f64, width_in: f64) -> f64 {
         fb_reference
             * self.c_d()
             * self.c_m_fb()
@@ -784,11 +779,7 @@ impl AdjustmentFactors {
     ///
     /// Fv' = Fv × C_D × C_M × C_t × C_i
     pub fn adjusted_fv(&self, fv_reference: f64) -> f64 {
-        fv_reference
-            * self.c_d()
-            * self.c_m_fv()
-            * self.c_t()
-            * self.c_i_strength()
+        fv_reference * self.c_d() * self.c_m_fv() * self.c_t() * self.c_i_strength()
     }
 
     /// Calculate adjusted modulus of elasticity E'
@@ -894,19 +885,32 @@ impl AdjustmentSummary {
              Net E factor            = {:.3}   {}",
             self.width_in,
             self.depth_in,
-            self.c_d, nds_ref::C_D,
-            self.c_m_fb, nds_ref::C_M,
-            self.c_m_fv, nds_ref::C_M,
-            self.c_m_e, nds_ref::C_M,
-            self.c_t, nds_ref::C_T,
-            self.c_l, nds_ref::C_L,
-            self.c_f, nds_ref::C_F,
-            self.c_fu, nds_ref::C_FU,
-            self.c_i_strength, nds_ref::C_I,
-            self.c_r, nds_ref::C_R,
-            self.net_fb_factor, nds_ref::FB_FORMULA,
-            self.net_fv_factor, nds_ref::FV_FORMULA,
-            self.net_e_factor, nds_ref::E_ADJUSTMENT,
+            self.c_d,
+            nds_ref::C_D,
+            self.c_m_fb,
+            nds_ref::C_M,
+            self.c_m_fv,
+            nds_ref::C_M,
+            self.c_m_e,
+            nds_ref::C_M,
+            self.c_t,
+            nds_ref::C_T,
+            self.c_l,
+            nds_ref::C_L,
+            self.c_f,
+            nds_ref::C_F,
+            self.c_fu,
+            nds_ref::C_FU,
+            self.c_i_strength,
+            nds_ref::C_I,
+            self.c_r,
+            nds_ref::C_R,
+            self.net_fb_factor,
+            nds_ref::FB_FORMULA,
+            self.net_fv_factor,
+            nds_ref::FV_FORMULA,
+            self.net_e_factor,
+            nds_ref::E_ADJUSTMENT,
         )
     }
 }

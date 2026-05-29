@@ -8,8 +8,8 @@
 use iced::widget::{column, container, scrollable, text, Column, Space};
 use iced::{Element, Length};
 
-use crate::{App, Message};
 use super::{result_project_info, result_wood_beam};
+use crate::{App, Message};
 
 /// Render the results panel based on current selection and calculation state
 ///

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use iced::keyboard::{self, Key, Modifiers};
 use iced::widget::canvas;
-use iced::widget::{column, container, row, rule, stack, Space, operation};
+use iced::widget::{column, container, operation, row, rule, stack, Space};
 use iced::{event, Element, Event, Font, Length, Subscription, Task, Theme};
 use uuid::Uuid;
 
@@ -26,9 +26,9 @@ use calc_core::materials::{
 use calc_core::nds_factors::{
     AdjustmentFactors, FlatUse, Incising, LoadDuration, RepetitiveMember, Temperature, WetService,
 };
-use calc_core::section_deductions::{NotchLocation, SectionDeductions};
 use calc_core::pdf::render_project_pdf;
 use calc_core::project::Project;
+use calc_core::section_deductions::{NotchLocation, SectionDeductions};
 
 mod ui;
 
@@ -137,9 +137,7 @@ pub enum ItemCategory {
 
 impl ItemCategory {
     /// All currently implemented categories
-    pub const IMPLEMENTED: &'static [ItemCategory] = &[
-        ItemCategory::WoodBeams,
-    ];
+    pub const IMPLEMENTED: &'static [ItemCategory] = &[ItemCategory::WoodBeams];
 
     /// All categories (including future/unimplemented)
     pub const ALL: &'static [ItemCategory] = &[
@@ -238,10 +236,7 @@ pub enum ResultsTab {
 }
 
 impl ResultsTab {
-    pub const ALL: [ResultsTab; 2] = [
-        ResultsTab::Results,
-        ResultsTab::Diagrams,
-    ];
+    pub const ALL: [ResultsTab; 2] = [ResultsTab::Results, ResultsTab::Diagrams];
 }
 
 impl std::fmt::Display for ResultsTab {
@@ -315,9 +310,7 @@ impl LoadTableRow {
         };
 
         let mut load = match self.distribution {
-            DistributionType::UniformFull => {
-                DiscreteLoad::uniform(self.load_type, magnitude)
-            }
+            DistributionType::UniformFull => DiscreteLoad::uniform(self.load_type, magnitude),
             DistributionType::Point => {
                 let pos: f64 = self.position.parse().unwrap_or(span_ft / 2.0);
                 DiscreteLoad::point(self.load_type, magnitude, pos)
@@ -646,7 +639,11 @@ impl App {
             .unwrap_or("Untitled");
 
         let modified = if self.is_modified { " *" } else { "" };
-        let read_only = if self.lock_holder.is_some() { " [Read-Only]" } else { "" };
+        let read_only = if self.lock_holder.is_some() {
+            " [Read-Only]"
+        } else {
+            ""
+        };
 
         format!("{}{}{} - Stratify", file_name, modified, read_only)
     }
@@ -972,7 +969,10 @@ impl App {
                 self.multi_span_mode = !self.multi_span_mode;
                 if !self.multi_span_mode && !self.span_table.is_empty() {
                     self.span_ft = self.span_table[0].length_ft.clone();
-                } else if self.multi_span_mode && !self.span_ft.is_empty() && !self.span_table.is_empty() {
+                } else if self.multi_span_mode
+                    && !self.span_ft.is_empty()
+                    && !self.span_table.is_empty()
+                {
                     self.span_table[0].length_ft = self.span_ft.clone();
                 }
                 self.auto_save_beam();
@@ -1383,20 +1383,18 @@ impl App {
                 }
             }
 
-            Message::PdfExportComplete(result) => {
-                match result {
-                    Ok(file_name) => {
-                        self.status = format!("Exported: {}", file_name);
-                    }
-                    Err(e) => {
-                        if e != "Export cancelled" {
-                            self.status = format!("Export failed: {}", e);
-                        } else {
-                            self.status = "Ready".to_string();
-                        }
+            Message::PdfExportComplete(result) => match result {
+                Ok(file_name) => {
+                    self.status = format!("Exported: {}", file_name);
+                }
+                Err(e) => {
+                    if e != "Export cancelled" {
+                        self.status = format!("Export failed: {}", e);
+                    } else {
+                        self.status = "Ready".to_string();
                     }
                 }
-            }
+            },
 
             // Update checking (native only)
             #[cfg(not(target_arch = "wasm32"))]
@@ -1407,26 +1405,24 @@ impl App {
             }
 
             #[cfg(not(target_arch = "wasm32"))]
-            Message::UpdateCheckComplete(result) => {
-                match result {
-                    update::UpdateCheckResult::UpdateAvailable(info) => {
-                        self.update_status = UpdateStatus::UpdateAvailable {
-                            version: info.version.clone(),
-                            download_url: info.download_url,
-                            html_url: info.html_url,
-                        };
-                        self.status = format!("Update available: v{}", info.version);
-                    }
-                    update::UpdateCheckResult::UpToDate => {
-                        self.update_status = UpdateStatus::UpToDate;
-                        self.status = format!("Up to date (v{})", update::CURRENT_VERSION);
-                    }
-                    update::UpdateCheckResult::Failed(msg) => {
-                        self.update_status = UpdateStatus::Failed(msg.clone());
-                        self.status = format!("Update check failed: {}", msg);
-                    }
+            Message::UpdateCheckComplete(result) => match result {
+                update::UpdateCheckResult::UpdateAvailable(info) => {
+                    self.update_status = UpdateStatus::UpdateAvailable {
+                        version: info.version.clone(),
+                        download_url: info.download_url,
+                        html_url: info.html_url,
+                    };
+                    self.status = format!("Update available: v{}", info.version);
                 }
-            }
+                update::UpdateCheckResult::UpToDate => {
+                    self.update_status = UpdateStatus::UpToDate;
+                    self.status = format!("Up to date (v{})", update::CURRENT_VERSION);
+                }
+                update::UpdateCheckResult::Failed(msg) => {
+                    self.update_status = UpdateStatus::Failed(msg.clone());
+                    self.status = format!("Update check failed: {}", msg);
+                }
+            },
 
             #[cfg(not(target_arch = "wasm32"))]
             Message::OpenUpdateUrl(url) => {
@@ -1618,88 +1614,95 @@ impl App {
     }
 
     fn select_beam(&mut self, id: Uuid) {
-        if let Some(item) = self.project.items.get(&id) {
-            if let CalculationItem::Beam(beam) = item {
-                self.selection = EditorSelection::Beam(Some(id));
-                self.beam_label = beam.label.clone();
+        if let Some(CalculationItem::Beam(beam)) = self.project.items.get(&id) {
+            self.selection = EditorSelection::Beam(Some(id));
+            self.beam_label = beam.label.clone();
 
-                if let Some(first_span) = beam.spans.first() {
-                    self.span_ft = first_span.length_ft.to_string();
-                    self.width_in = first_span.width_in.to_string();
-                    self.depth_in = first_span.depth_in.to_string();
+            if let Some(first_span) = beam.spans.first() {
+                self.span_ft = first_span.length_ft.to_string();
+                self.width_in = first_span.width_in.to_string();
+                self.depth_in = first_span.depth_in.to_string();
 
-                    let single_ply_width = first_span.width_in;
-                    let depth = first_span.depth_in;
+                let single_ply_width = first_span.width_in;
+                let depth = first_span.depth_in;
 
-                    let mut found_size = LumberSize::Custom;
-                    let mut found_ply = PlyCount::Single;
+                let mut found_size = LumberSize::Custom;
+                let mut found_ply = PlyCount::Single;
 
-                    for ply in &PlyCount::ALL {
-                        let ply_width = single_ply_width / ply.count() as f64;
-                        let detected = LumberSize::from_actual_dimensions(ply_width, depth);
-                        if !detected.is_custom() {
-                            found_size = detected;
-                            found_ply = *ply;
-                            break;
-                        }
-                    }
-
-                    self.selected_lumber_size = found_size;
-                    self.selected_ply_count = found_ply;
-
-                    match &first_span.material {
-                        Material::SawnLumber(wood) => {
-                            self.selected_material_type = MaterialType::SawnLumber;
-                            self.selected_species = Some(wood.species);
-                            self.selected_grade = Some(wood.grade);
-                        }
-                        Material::Glulam(glulam) => {
-                            self.selected_material_type = MaterialType::Glulam;
-                            self.selected_glulam_class = Some(glulam.stress_class);
-                            self.selected_glulam_layup = Some(glulam.layup);
-                        }
-                        Material::Lvl(lvl) => {
-                            self.selected_material_type = MaterialType::Lvl;
-                            self.selected_lvl_grade = Some(lvl.grade);
-                        }
-                        Material::Psl(psl) => {
-                            self.selected_material_type = MaterialType::Psl;
-                            self.selected_psl_grade = Some(psl.grade);
-                        }
+                for ply in &PlyCount::ALL {
+                    let ply_width = single_ply_width / ply.count() as f64;
+                    let detected = LumberSize::from_actual_dimensions(ply_width, depth);
+                    if !detected.is_custom() {
+                        found_size = detected;
+                        found_ply = *ply;
+                        break;
                     }
                 }
 
-                self.load_table = beam.load_case.loads.iter().map(LoadTableRow::from_discrete_load).collect();
-                self.include_self_weight = beam.load_case.include_self_weight;
+                self.selected_lumber_size = found_size;
+                self.selected_ply_count = found_ply;
 
-                self.selected_load_duration = beam.adjustment_factors.load_duration;
-                self.selected_wet_service = beam.adjustment_factors.wet_service;
-                self.selected_temperature = beam.adjustment_factors.temperature;
-                self.selected_incising = beam.adjustment_factors.incising;
-                self.selected_repetitive_member = beam.adjustment_factors.repetitive_member;
-                self.selected_flat_use = beam.adjustment_factors.flat_use;
-                self.compression_edge_braced = beam.adjustment_factors.compression_edge_braced;
-
-                self.multi_span_mode = beam.spans.len() > 1;
-                self.span_table = beam.spans.iter().zip(beam.supports.iter())
-                    .map(|(span, support)| SpanTableRow::from_span(span, *support))
-                    .collect();
-                self.right_end_support = beam.supports.last().copied().unwrap_or(SupportType::Roller);
-
-                self.selected_notch_location = beam.section_deductions.notch_location;
-                self.notch_depth_left = positive_or_empty(beam.section_deductions.notch_depth_left_in);
-                self.notch_depth_right = positive_or_empty(beam.section_deductions.notch_depth_right_in);
-                self.hole_diameter = positive_or_empty(beam.section_deductions.hole_diameter_in);
-                self.hole_count = if beam.section_deductions.hole_count > 0 {
-                    beam.section_deductions.hole_count.to_string()
-                } else {
-                    String::new()
-                };
-
-                self.error_message = None;
-                self.status = format!("Selected: {}", beam.label);
-                self.try_calculate();
+                match &first_span.material {
+                    Material::SawnLumber(wood) => {
+                        self.selected_material_type = MaterialType::SawnLumber;
+                        self.selected_species = Some(wood.species);
+                        self.selected_grade = Some(wood.grade);
+                    }
+                    Material::Glulam(glulam) => {
+                        self.selected_material_type = MaterialType::Glulam;
+                        self.selected_glulam_class = Some(glulam.stress_class);
+                        self.selected_glulam_layup = Some(glulam.layup);
+                    }
+                    Material::Lvl(lvl) => {
+                        self.selected_material_type = MaterialType::Lvl;
+                        self.selected_lvl_grade = Some(lvl.grade);
+                    }
+                    Material::Psl(psl) => {
+                        self.selected_material_type = MaterialType::Psl;
+                        self.selected_psl_grade = Some(psl.grade);
+                    }
+                }
             }
+
+            self.load_table = beam
+                .load_case
+                .loads
+                .iter()
+                .map(LoadTableRow::from_discrete_load)
+                .collect();
+            self.include_self_weight = beam.load_case.include_self_weight;
+
+            self.selected_load_duration = beam.adjustment_factors.load_duration;
+            self.selected_wet_service = beam.adjustment_factors.wet_service;
+            self.selected_temperature = beam.adjustment_factors.temperature;
+            self.selected_incising = beam.adjustment_factors.incising;
+            self.selected_repetitive_member = beam.adjustment_factors.repetitive_member;
+            self.selected_flat_use = beam.adjustment_factors.flat_use;
+            self.compression_edge_braced = beam.adjustment_factors.compression_edge_braced;
+
+            self.multi_span_mode = beam.spans.len() > 1;
+            self.span_table = beam
+                .spans
+                .iter()
+                .zip(beam.supports.iter())
+                .map(|(span, support)| SpanTableRow::from_span(span, *support))
+                .collect();
+            self.right_end_support = beam.supports.last().copied().unwrap_or(SupportType::Roller);
+
+            self.selected_notch_location = beam.section_deductions.notch_location;
+            self.notch_depth_left = positive_or_empty(beam.section_deductions.notch_depth_left_in);
+            self.notch_depth_right =
+                positive_or_empty(beam.section_deductions.notch_depth_right_in);
+            self.hole_diameter = positive_or_empty(beam.section_deductions.hole_diameter_in);
+            self.hole_count = if beam.section_deductions.hole_count > 0 {
+                beam.section_deductions.hole_count.to_string()
+            } else {
+                String::new()
+            };
+
+            self.error_message = None;
+            self.status = format!("Selected: {}", beam.label);
+            self.try_calculate();
         }
     }
 
@@ -1728,7 +1731,10 @@ impl App {
             return;
         }
 
-        let beam_count = self.project.items.values()
+        let beam_count = self
+            .project
+            .items
+            .values()
             .filter(|i| matches!(i, CalculationItem::Beam(_)))
             .count();
         let new_label = format!("B-{}", beam_count + 1);
@@ -1742,7 +1748,10 @@ impl App {
             12.0,
             1.5,
             9.25,
-            Material::SawnLumber(WoodMaterial::new(WoodSpecies::DouglasFirLarch, WoodGrade::No2)),
+            Material::SawnLumber(WoodMaterial::new(
+                WoodSpecies::DouglasFirLarch,
+                WoodGrade::No2,
+            )),
             load_case,
         );
 
@@ -1807,19 +1816,23 @@ impl App {
                     _ => return,
                 };
                 supports.push(span_row.left_support);
-                let span = SpanSegment::new(span_len, width_in, depth_in, material.clone()).with_id(span_row.id);
+                let span = SpanSegment::new(span_len, width_in, depth_in, material.clone())
+                    .with_id(span_row.id);
                 spans.push(span);
                 if i == self.span_table.len() - 1 {
                     supports.push(self.right_end_support);
                 }
             }
 
-            let mut beam = ContinuousBeamInput::new(self.beam_label.clone(), spans, supports, load_case);
+            let mut beam =
+                ContinuousBeamInput::new(self.beam_label.clone(), spans, supports, load_case);
             beam.adjustment_factors = adjustment_factors;
             beam
         } else {
             // Single-span mode: use span_ft for length, but respect support type selections
-            let left_support = self.span_table.first()
+            let left_support = self
+                .span_table
+                .first()
                 .map(|s| s.left_support)
                 .unwrap_or(SupportType::Pinned);
             let right_support = self.right_end_support;
@@ -1837,7 +1850,9 @@ impl App {
         let mut beam = beam;
         beam.section_deductions = self.build_section_deductions();
 
-        self.project.items.insert(beam_id, CalculationItem::Beam(beam));
+        self.project
+            .items
+            .insert(beam_id, CalculationItem::Beam(beam));
         self.mark_modified();
     }
 
@@ -2009,7 +2024,8 @@ impl App {
 
         // Check which divider is being dragged
         let dragging_items_input = matches!(self.dragging_divider, Some(DividerType::ItemsInput));
-        let dragging_input_results = matches!(self.dragging_divider, Some(DividerType::InputResults));
+        let dragging_input_results =
+            matches!(self.dragging_divider, Some(DividerType::InputResults));
 
         // Build content row with draggable dividers between panels
         // Layout: items_panel | divider | input_panel | divider | results_panel
@@ -2046,11 +2062,9 @@ impl App {
         ]
         .padding(15);
 
-        let mut root_stack = stack![
-            container(main_content)
-                .width(Length::Fill)
-                .height(Length::Fill)
-        ];
+        let mut root_stack = stack![container(main_content)
+            .width(Length::Fill)
+            .height(Length::Fill)];
 
         if self.settings_menu_open {
             // Transparent overlay to catch clicks outside the menu
@@ -2058,14 +2072,17 @@ impl App {
                 .on_press(Message::ToggleSettingsMenu)
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .style(|_, _| iced::widget::button::Style::default().with_background(iced::Color::TRANSPARENT));
+                .style(|_, _| {
+                    iced::widget::button::Style::default().with_background(iced::Color::TRANSPARENT)
+                });
 
             // Position the dropdown in the top-right
             // The padding should align with the toolbar settings button
             // Toolbar is ~30px high + padding
             // We'll use a container aligned to top-right with padding
             #[cfg(not(target_arch = "wasm32"))]
-            let settings_menu = ui::toolbar::view_settings_menu(self.dark_mode, &self.update_status);
+            let settings_menu =
+                ui::toolbar::view_settings_menu(self.dark_mode, &self.update_status);
             #[cfg(target_arch = "wasm32")]
             let settings_menu = ui::toolbar::view_settings_menu(self.dark_mode);
 
@@ -2092,5 +2109,79 @@ impl App {
         }
 
         root_stack.into()
+    }
+}
+
+// ============================================================================
+// Smoke tests
+// ============================================================================
+//
+// These do not instantiate an iced runtime — they exercise pure App state
+// and the calc_core boundary. They catch regressions in default-state setup
+// and the GUI's input -> calc_core wiring without needing a GPU or window.
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_app_state_has_expected_initial_values() {
+        let app = App::default();
+
+        assert_eq!(app.beam_label, "B-1");
+        assert_eq!(app.span_ft, "12.0");
+        assert_eq!(app.width_in, "1.5");
+        assert_eq!(app.depth_in, "9.25");
+        assert_eq!(app.selected_material_type, MaterialType::SawnLumber);
+        assert_eq!(app.selected_species, Some(WoodSpecies::DouglasFirLarch));
+        assert_eq!(app.selected_grade, Some(WoodGrade::No2));
+
+        // Two default loads: D and L, both uniform-full.
+        assert_eq!(app.load_table.len(), 2);
+        assert_eq!(app.load_table[0].load_type, LoadType::Dead);
+        assert_eq!(app.load_table[1].load_type, LoadType::Live);
+
+        // No calculation has run yet.
+        assert!(app.result.is_none());
+        assert!(app.error_message.is_none());
+    }
+
+    #[test]
+    fn try_calculate_on_default_beam_passes_with_sane_unity() {
+        // The default form models a beam, but the welcome screen is the active
+        // selection — switch focus to the beam editor so try_calculate runs.
+        let mut app = App {
+            selection: EditorSelection::Beam(None),
+            ..App::default()
+        };
+
+        app.try_calculate();
+
+        assert!(
+            app.error_message.is_none(),
+            "no error: {:?}",
+            app.error_message
+        );
+        let result = app.result.as_ref().expect("result populated");
+
+        // 2x10 DF-L No.2 at 12 ft with 15+40 plf is a textbook safe floor beam.
+        let span_result = result.span_results.first().expect("span result");
+        assert!(span_result.bending_unity > 0.0 && span_result.bending_unity < 1.0);
+        assert!(span_result.shear_unity > 0.0 && span_result.shear_unity < 1.0);
+        assert!(result.passes(), "default beam should pass all checks");
+    }
+
+    #[test]
+    fn project_default_round_trips_through_json() {
+        // The GUI persists Project via serde; verify the default shape survives
+        // a save -> load cycle byte-for-byte. Catches a #[serde(skip)] regression
+        // on a newly-added field.
+        let app = App::default();
+        let json = serde_json::to_string(&app.project).expect("serialize");
+        let restored: Project = serde_json::from_str(&json).expect("deserialize");
+
+        assert_eq!(restored.meta.engineer, app.project.meta.engineer);
+        assert_eq!(restored.meta.job_id, app.project.meta.job_id);
+        assert_eq!(restored.items.len(), app.project.items.len());
     }
 }
