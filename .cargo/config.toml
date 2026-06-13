@@ -1,11 +1,17 @@
-# Stratify - cargo config for fast-iteration on aarch64-pc-windows-msvc.
+# Stratify - cargo config. Two dev machines, two host targets:
+#   x86_64-pc-windows-msvc  (desktop) -> lld-link linker (block below)
+#   aarch64-pc-windows-msvc (laptop)  -> stays on MSVC link.exe (see notes)
 #
 # Notes:
 # - rustc_codegen_cranelift is NOT distributed for aarch64-pc-windows-msvc as of 2026.
+#   It IS distributed for x86_64, but is nightly-only and forces panic=abort, which
+#   breaks the Iced GUI's unwinding on Windows - so we do not use it by default.
 #   See https://github.com/rust-lang/rustc_codegen_cranelift
-# - rust-lld is intentionally not the default on aarch64-pc-windows-msvc (rust#54290);
-#   we stay on link.exe (MSVC). Do not override unless you have a reason.
-# - The real wins live in [profile.dev] in the workspace Cargo.toml.
+# - rust-lld is not yet the default linker on Windows MSVC (it stabilized Linux-only
+#   in 1.90). On x86_64 we opt into LLVM's lld-link explicitly (big incremental-link
+#   win); on aarch64 we stay on link.exe (rust#54290).
+# - The rest of the wins live in [profile.*] in the workspace Cargo.toml.
+# - Full benchmark + rationale: docs/compile-speed.md.
 
 [alias]
 # Short forms for the common cadence
@@ -18,12 +24,19 @@ gui = "run --profile dev-fast -p calc_gui"
 # claiming an unwrap-elimination sweep is done.
 audit-unwraps = "clippy --workspace --lib --bins -- -D clippy::unwrap_used -D clippy::expect_used -D clippy::panic"
 
+# Desktop (x86_64): LLVM's lld-link is ~2-5x faster than MSVC link.exe on the
+# incremental edit->rebuild loop (linking runs on every build). Validated against
+# the full Iced/wgpu/Typst link graph; Bevy ships LLD as its default Windows linker
+# for the same dependency shape. Requires `C:\Program Files\LLVM\bin` on PATH, which
+# CLAUDE.md already mandates (ring's C build needs clang). Switching linkers forces
+# one full rebuild (linker is part of the build fingerprint); incremental is fast after.
+[target.x86_64-pc-windows-msvc]
+linker = "lld-link.exe"
+# Nightly opt-in (switch rust-toolchain.toml to nightly first): parallel rustc
+# front-end + shared generics. Up to ~50% faster `cargo check`/clean builds - the
+# main lever for calc_core's warm loop, which lld-link can't touch (lib, no link).
+# rustflags = ["-Zthreads=8", "-Zshare-generics=y"]
+
+# Laptop (aarch64): stays on MSVC link.exe (rust-lld not default here, rust#54290).
 [target.aarch64-pc-windows-msvc]
 rustflags = []
-
-# Nightly-only knobs (left commented; uncomment alongside rust-toolchain.toml):
-# [target.aarch64-pc-windows-msvc]
-# rustflags = [
-#     "-Zthreads=8",
-#     "-Zshare-generics=y",
-# ]

@@ -5,6 +5,9 @@ target/
 
 .claude/
 
+# Cleanup staging area (CLAUDE.md RULE 1 - archive instead of delete)
+archive/
+
 calc_core/project.stf
 calc_core/project.stf.lock
 

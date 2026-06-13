@@ -66,7 +66,7 @@ clap = { version = "4.5", features = ["derive"] }
 # Internal crates
 calc_core = { path = "calc_core" }
 
-# --- Build-speed profile tuning (Windows ARM64) ---
+# --- Build-speed profile tuning (Windows MSVC: x86_64 desktop + aarch64 laptop) ---
 #
 # debug = "line-tables-only" gives ~20-40% faster incremental builds on Windows
 # MSVC by skipping variable/type debuginfo while keeping file:line in backtraces.
@@ -78,10 +78,24 @@ debug = "line-tables-only"
 [profile.test]
 debug = "line-tables-only"
 
-# Optimize dependencies in dev builds for better UI performance
-# (keeps your code unoptimized for fast compile times)
+# Dependencies: optimized for runtime (smooth wgpu/Typst even in debug) but with
+# NO debuginfo - we never step into third-party crates, so their debuginfo is dead
+# weight on every cold build and every link. `debug = false` here is a pure win.
+#
+# `opt-level = 3` is a deliberate runtime choice (GUI smoothness in debug); it costs
+# cold-build time but NOT the warm edit->rebuild loop, since deps are cached and
+# never recompiled on a workspace-source edit. If cold-build time ever matters more
+# than debug GUI perf, drop this to opt-level = 1 (the widely-recommended sweet spot)
+# for a large cold-build win - see docs/compile-speed.md.
 [profile.dev.package."*"]
 opt-level = 3
+debug = false
+
+# Full debuginfo on demand (variable/type inspection in a debugger) without
+# slowing the default dev loop. Usage: cargo build --profile debugging -p calc_gui
+[profile.debugging]
+inherits = "dev"
+debug = true
 
 # Max-speed iteration profile for when you don't need the debugger.
 # Usage: cargo run --profile dev-fast -p calc_gui
